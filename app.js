@@ -10,7 +10,7 @@ const PHASES = [
     '提案済み', '受注', '契約書対応中', '入金済み'
 ];
 
-const MEMBERS = ['阿部', '上島', '米井', '中村', '野口', '市原'];
+const MEMBERS = ['阿部', '上島', '米井', '中村', '野口', '市原', '長田'];
 
 const MEMBER_COLORS = {
     '阿部': '#005c91',
@@ -18,7 +18,8 @@ const MEMBER_COLORS = {
     '米井': '#29cc6b',
     '中村': '#f5a623',
     '野口': '#e74c3c',
-    '市原': '#9b59b6'
+    '市原': '#9b59b6',
+    '長田': '#2d8659'
 };
 
 // 許可されたメールアドレス（ここに登録されたアドレスのみログイン可能）
@@ -383,11 +384,15 @@ function renderKanban() {
         col.dataset.phase = phase;
 
         const deals = filtered.filter(d => d.phase === phase);
+        const phaseAmount = deals.reduce((sum, d) => sum + (d.amount || 0), 0);
 
         col.innerHTML = `
             <div class="column-header">
-                <span>${phase}</span>
-                <span class="count">${deals.length}</span>
+                <div class="column-header-top">
+                    <span>${phase}</span>
+                    <span class="count">${deals.length}</span>
+                </div>
+                ${phaseAmount > 0 ? `<div class="column-header-amount">¥${phaseAmount.toLocaleString()}</div>` : ''}
             </div>
             <div class="column-body" data-phase="${phase}"></div>
         `;

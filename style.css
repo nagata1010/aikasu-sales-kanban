@@ -462,15 +462,18 @@ body {
 }
 
 .column-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     padding: 12px 14px;
     font-weight: 600;
     font-size: 0.85rem;
     color: var(--gray-700);
     border-bottom: 2px solid var(--primary);
     flex-shrink: 0;
+}
+
+.column-header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .column-header .count {
@@ -482,6 +485,16 @@ body {
     border-radius: 10px;
     min-width: 24px;
     text-align: center;
+}
+
+.column-header-amount {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--success);
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .column-body {
