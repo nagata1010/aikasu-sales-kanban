@@ -605,6 +605,24 @@ body {
     color: var(--danger);
 }
 
+/* Deal Card Tags */
+.deal-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 6px;
+}
+
+.deal-tag {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--white);
+    padding: 1px 7px;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+
 .deal-card-amount {
     font-size: 0.8rem;
     font-weight: 600;
@@ -1269,6 +1287,45 @@ body {
 
 .form-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,92,145,0.1); }
 
+/* Tag Selector in Modal */
+.tag-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.tag-option {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.tag-option input[type="checkbox"] {
+    display: none;
+}
+
+.tag-chip {
+    display: inline-block;
+    padding: 5px 12px;
+    border-radius: 16px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--gray-600);
+    background: var(--gray-100);
+    border: 1.5px solid var(--gray-200);
+    transition: all 0.15s;
+    user-select: none;
+}
+
+.tag-option input[type="checkbox"]:checked + .tag-chip {
+    color: var(--white);
+    background: var(--tag-color, var(--primary));
+    border-color: var(--tag-color, var(--primary));
+}
+
+.tag-chip:hover {
+    border-color: var(--tag-color, var(--primary));
+}
+
 .form-textarea { resize: vertical; min-height: 60px; }
 
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -1751,6 +1808,11 @@ body {
         padding: 10px 12px;
         font-size: 1rem;
         /* iOS Safariでのズーム防止 */
+    }
+
+    .tag-chip {
+        padding: 7px 14px;
+        font-size: 0.85rem;
     }
 
     .form-row { grid-template-columns: 1fr; }

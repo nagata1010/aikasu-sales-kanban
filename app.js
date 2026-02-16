@@ -23,6 +23,28 @@ const MEMBER_COLORS = {
     '長田': '#2d8659'
 };
 
+// 商談種別タグ
+const DEAL_TAGS = [
+    '人材紹介',
+    '先方イベント動員',
+    '当社イベントブース出展',
+    '新入社員研修',
+    'RPO',
+    'コンサルティング',
+    'その他'
+];
+
+// 商談種別タグの色
+const TAG_COLORS = {
+    '人材紹介': '#005c91',
+    '先方イベント動員': '#0077b6',
+    '当社イベントブース出展': '#29cc6b',
+    '新入社員研修': '#f5a623',
+    'RPO': '#e74c3c',
+    'コンサルティング': '#9b59b6',
+    'その他': '#868e96'
+};
+
 // 許可されたメールアドレス（ここに登録されたアドレスのみログイン可能）
 const ALLOWED_EMAILS_DEFAULT = [
     'abe.keisuke@aikasu.jp',
@@ -642,6 +664,13 @@ function createDealCard(deal) {
         <span class="deal-card-member" style="background:${MEMBER_COLORS[deal.member] || '#005c91'}">${escapeHtml(deal.member)}</span>
     `;
 
+    // タグ表示
+    if (deal.tags && deal.tags.length > 0) {
+        html += `<div class="deal-card-tags">${deal.tags.map(t =>
+            `<span class="deal-tag" style="background:${TAG_COLORS[t] || '#868e96'}">${escapeHtml(t)}</span>`
+        ).join('')}</div>`;
+    }
+
     let infoHtml = '';
     if (deal.contact) infoHtml += `<div><i class="fas fa-user"></i> ${escapeHtml(deal.contact)}</div>`;
     if (deal.phone) infoHtml += `<div><i class="fas fa-phone"></i> ${escapeHtml(deal.phone)}</div>`;
@@ -767,6 +796,7 @@ function openDealModal(dealId = null) {
         document.getElementById('deal-next-date').value = deal.nextDate || '';
         document.getElementById('deal-amount').value = deal.amount || '';
         document.getElementById('deal-notes').value = deal.notes || '';
+        setDealTags(deal.tags || []);
     } else {
         title.textContent = '案件追加';
         deleteBtn.style.display = 'none';
@@ -780,6 +810,7 @@ function openDealModal(dealId = null) {
         document.getElementById('deal-next-date').value = '';
         document.getElementById('deal-amount').value = '';
         document.getElementById('deal-notes').value = '';
+        setDealTags([]);
     }
 
     modal.classList.add('show');
@@ -789,6 +820,18 @@ function openDealModal(dealId = null) {
 function closeDealModal() {
     document.getElementById('deal-modal').classList.remove('show');
     state.editingDealId = null;
+}
+
+// タグ選択のヘルパー
+function getDealTags() {
+    const checkboxes = document.querySelectorAll('.tag-checkbox:checked');
+    return Array.from(checkboxes).map(cb => cb.value);
+}
+
+function setDealTags(tags) {
+    document.querySelectorAll('.tag-checkbox').forEach(cb => {
+        cb.checked = tags.includes(cb.value);
+    });
 }
 
 function saveDeal() {
@@ -804,6 +847,7 @@ function saveDeal() {
         contact: document.getElementById('deal-contact').value.trim(),
         phone: document.getElementById('deal-phone').value.trim(),
         email: document.getElementById('deal-email').value.trim(),
+        tags: getDealTags(),
         nextAction: document.getElementById('deal-next-action').value.trim(),
         nextDate: document.getElementById('deal-next-date').value,
         amount: document.getElementById('deal-amount').value ? Number(document.getElementById('deal-amount').value) : 0,
