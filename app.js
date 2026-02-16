@@ -1,5 +1,6 @@
 /* ==========================================
    AIKASU Sales Manager - Application
+   Firebase Firestore + Auth 対応版
    ========================================== */
 
 // ==========================================
@@ -30,9 +31,42 @@ const ALLOWED_EMAILS_DEFAULT = [
     'info@aikasu.jp'
 ];
 
-// Google OAuth Client ID - Google Cloud Consoleで取得して設定してください
-// 設定手順: https://console.cloud.google.com/ → APIとサービス → 認証情報 → OAuth 2.0 クライアントID
-const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID';
+// ==========================================
+// Firebase Configuration
+// ==========================================
+const firebaseConfig = {
+    apiKey: "AIzaSyAqLLr8M8nuJ5-KAsdduyLhsOatxafOrSI",
+    authDomain: "aikasu.firebaseapp.com",
+    projectId: "aikasu",
+    storageBucket: "aikasu.firebasestorage.app",
+    messagingSenderId: "637392282004",
+    appId: "1:637392282004:web:c03779d8362f9eae932f81",
+    measurementId: "G-W0NG1QB30T"
+};
+
+// Firebase 初期化
+const app = firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+// Firestore オフラインキャッシュ有効化
+db.enablePersistence({ synchronizeTabs: true }).catch(err => {
+    if (err.code === 'failed-precondition') {
+        console.log('複数タブでのオフライン永続化は利用不可。通常のキャッシュで動作します。');
+    } else if (err.code === 'unimplemented') {
+        console.log('このブラウザはオフライン永続化をサポートしていません。');
+    }
+});
+
+// Firestoreコレクション参照
+const dealsRef = db.collection('deals');
+const activityRef = db.collection('activityLog');
+const settingsRef = db.collection('settings');
+
+// リアルタイムリスナー解除用
+let unsubDeals = null;
+let unsubActivity = null;
+let unsubSettings = null;
 
 // ==========================================
 // State
@@ -50,18 +84,129 @@ let state = {
 };
 
 // ==========================================
-// Storage
+// Firestore CRUD
 // ==========================================
-function saveState() {
-    const data = {
-        deals: state.deals,
-        activityLog: state.activityLog,
-        allowedEmails: state.allowedEmails
-    };
-    localStorage.setItem('aikasu_sales_data', JSON.stringify(data));
+
+// --- Deals ---
+async function saveDealToFirestore(deal) {
+    try {
+        await dealsRef.doc(deal.id).set(deal);
+    } catch (e) {
+        console.error('Firestore deal save error:', e);
+        saveStateToLocal(); // フォールバック
+    }
 }
 
-function loadState() {
+async function deleteDealFromFirestore(dealId) {
+    try {
+        await dealsRef.doc(dealId).delete();
+    } catch (e) {
+        console.error('Firestore deal delete error:', e);
+    }
+}
+
+// --- Activity Log ---
+async function saveActivityToFirestore(activity) {
+    try {
+        await activityRef.doc(activity.id).set(activity);
+    } catch (e) {
+        console.error('Firestore activity save error:', e);
+    }
+}
+
+// --- Settings (allowedEmails) ---
+async function saveSettingsToFirestore() {
+    try {
+        await settingsRef.doc('allowedEmails').set({
+            emails: state.allowedEmails,
+            updatedAt: new Date().toISOString()
+        });
+    } catch (e) {
+        console.error('Firestore settings save error:', e);
+        saveStateToLocal();
+    }
+}
+
+// --- リアルタイムリスナー ---
+function startRealtimeListeners() {
+    // 既存リスナーを解除
+    stopRealtimeListeners();
+
+    // Deals リスナー
+    unsubDeals = dealsRef.onSnapshot(snapshot => {
+        state.deals = [];
+        snapshot.forEach(doc => {
+            state.deals.push(doc.data());
+        });
+        // createdAt順にソート（新しい順）
+        state.deals.sort((a, b) => {
+            const aDate = a.createdAt || '';
+            const bDate = b.createdAt || '';
+            return aDate.localeCompare(bDate);
+        });
+        saveStateToLocal(); // ローカルバックアップ
+        renderAll();
+    }, err => {
+        console.error('Deals listener error:', err);
+        // オフライン時はローカルから読み込み
+        loadStateFromLocal();
+        renderAll();
+    });
+
+    // Activity Log リスナー
+    unsubActivity = activityRef.orderBy('timestamp', 'desc').limit(500).onSnapshot(snapshot => {
+        state.activityLog = [];
+        snapshot.forEach(doc => {
+            state.activityLog.push(doc.data());
+        });
+        // レポートビューが表示中なら更新
+        if (state.currentView === 'report') renderReport();
+        if (state.currentView === 'list') renderListView();
+    }, err => {
+        console.error('Activity listener error:', err);
+    });
+
+    // Settings リスナー
+    unsubSettings = settingsRef.doc('allowedEmails').onSnapshot(doc => {
+        if (doc.exists) {
+            const data = doc.data();
+            state.allowedEmails = data.emails || [];
+        }
+        // デフォルトの許可メールを常に含める
+        ALLOWED_EMAILS_DEFAULT.forEach(email => {
+            if (!state.allowedEmails.includes(email)) {
+                state.allowedEmails.push(email);
+            }
+        });
+        if (state.currentView === 'settings') renderSettings();
+    }, err => {
+        console.error('Settings listener error:', err);
+    });
+}
+
+function stopRealtimeListeners() {
+    if (unsubDeals) { unsubDeals(); unsubDeals = null; }
+    if (unsubActivity) { unsubActivity(); unsubActivity = null; }
+    if (unsubSettings) { unsubSettings(); unsubSettings = null; }
+}
+
+// ==========================================
+// LocalStorage (フォールバック / バックアップ)
+// ==========================================
+function saveStateToLocal() {
+    try {
+        const data = {
+            deals: state.deals,
+            activityLog: state.activityLog,
+            allowedEmails: state.allowedEmails
+        };
+        localStorage.setItem('aikasu_sales_data', JSON.stringify(data));
+    } catch (e) {
+        console.error('LocalStorage save error:', e);
+    }
+}
+
+function loadStateFromLocal() {
     try {
         const raw = localStorage.getItem('aikasu_sales_data');
         if (raw) {
@@ -71,14 +216,76 @@ function loadState() {
             state.allowedEmails = data.allowedEmails || [];
         }
     } catch (e) {
-        console.error('Failed to load state:', e);
+        console.error('Failed to load local state:', e);
     }
-    // デフォルトの許可メールアドレスを常に含める（削除されても復元される）
     ALLOWED_EMAILS_DEFAULT.forEach(email => {
         if (!state.allowedEmails.includes(email)) {
             state.allowedEmails.push(email);
         }
     });
+}
+
+// ==========================================
+// 既存LocalStorageデータをFirestoreに移行
+// ==========================================
+async function migrateLocalDataToFirestore() {
+    const raw = localStorage.getItem('aikasu_sales_data');
+    if (!raw) return;
+
+    try {
+        const data = JSON.parse(raw);
+        const localDeals = data.deals || [];
+        const localActivity = data.activityLog || [];
+        const localEmails = data.allowedEmails || [];
+
+        if (localDeals.length === 0 && localActivity.length === 0) return;
+
+        // Firestoreに既存データがあるかチェック
+        const existingDeals = await dealsRef.limit(1).get();
+        if (!existingDeals.empty) {
+            console.log('Firestoreに既存データあり。移行スキップ。');
+            return;
+        }
+
+        showToast('データをクラウドに移行中...', 'info');
+
+        // バッチ書き込み（500件ずつ）
+        const batchSize = 500;
+
+        // Deals移行
+        for (let i = 0; i < localDeals.length; i += batchSize) {
+            const batch = db.batch();
+            const chunk = localDeals.slice(i, i + batchSize);
+            chunk.forEach(deal => {
+                batch.set(dealsRef.doc(deal.id), deal);
+            });
+            await batch.commit();
+        }
+
+        // ActivityLog移行（最新500件のみ）
+        const recentActivity = localActivity.slice(0, 500);
+        for (let i = 0; i < recentActivity.length; i += batchSize) {
+            const batch = db.batch();
+            const chunk = recentActivity.slice(i, i + batchSize);
+            chunk.forEach(act => {
+                batch.set(activityRef.doc(act.id), act);
+            });
+            await batch.commit();
+        }
+
+        // Settings移行
+        if (localEmails.length > 0) {
+            await settingsRef.doc('allowedEmails').set({
+                emails: localEmails,
+                updatedAt: new Date().toISOString()
+            });
+        }
+
+        showToast(`${localDeals.length}件のデータをクラウドに移行しました！`, 'success');
+    } catch (e) {
+        console.error('データ移行エラー:', e);
+        showToast('データ移行中にエラーが発生しました', 'error');
+    }
 }
 
 // ==========================================
@@ -125,13 +332,12 @@ function showToast(message, type = 'success') {
 }
 
 // ==========================================
-// Authentication (Google OAuth)
+// Authentication (Firebase Auth + Google)
 // ==========================================
 
 function isEmailAllowed(email) {
     if (!email) return false;
     const normalizedEmail = email.toLowerCase().trim();
-    // ハードコードのデフォルトリスト + 設定画面で追加されたリストの両方をチェック
     const allAllowed = [...new Set([...ALLOWED_EMAILS_DEFAULT, ...state.allowedEmails])];
     return allAllowed.includes(normalizedEmail);
 }
@@ -143,111 +349,71 @@ function initAuth() {
     loginBtn.addEventListener('click', handleLogin);
     logoutBtn.addEventListener('click', handleLogout);
 
-    // Google Identity Services ライブラリの読み込みチェック
-    initGoogleAuth();
-
-    // 保存セッションの復元（メールアドレスの再検証あり）
-    const savedUser = sessionStorage.getItem('aikasu_user');
-    if (savedUser) {
-        try {
-            const user = JSON.parse(savedUser);
-            // 保存されたセッションでも毎回メールアドレスを検証する
-            if (isEmailAllowed(user.email)) {
-                state.currentUser = user;
-                showApp();
-            } else {
-                sessionStorage.removeItem('aikasu_user');
+    // Firebase Auth 状態監視
+    auth.onAuthStateChanged(async (user) => {
+        if (user) {
+            // ログイン中
+            if (!isEmailAllowed(user.email)) {
+                showToast('このアカウントにはアクセス権がありません。管理者に連絡してください。', 'error');
+                auth.signOut();
                 showLogin();
+                return;
             }
-        } catch (e) {
+            state.currentUser = {
+                name: user.displayName || user.email.split('@')[0],
+                email: user.email,
+                photo: user.photoURL
+            };
+            showApp();
+
+            // 既存ローカルデータをFirestoreに移行
+            await migrateLocalDataToFirestore();
+
+            // リアルタイムリスナー開始
+            startRealtimeListeners();
+        } else {
+            // 未ログイン
+            state.currentUser = null;
+            stopRealtimeListeners();
             showLogin();
         }
-    } else {
-        showLogin();
-    }
-}
-
-function initGoogleAuth() {
-    // Google Identity Services (GIS) のスクリプトを動的に読み込み
-    if (GOOGLE_CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID') {
-        console.log('Google Client ID未設定: ローカル認証モードで動作します');
-        return;
-    }
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    document.head.appendChild(script);
+    });
 }
 
 async function handleLogin() {
-    // Google Identity Services が利用可能な場合
-    if (GOOGLE_CLIENT_ID !== 'YOUR_GOOGLE_CLIENT_ID' && typeof google !== 'undefined' && google.accounts) {
-        try {
-            const client = google.accounts.oauth2.initTokenClient({
-                client_id: GOOGLE_CLIENT_ID,
-                scope: 'email profile',
-                callback: (response) => {
-                    if (response.access_token) {
-                        // ユーザー情報を取得
-                        fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-                            headers: { Authorization: `Bearer ${response.access_token}` }
-                        })
-                        .then(res => res.json())
-                        .then(userInfo => {
-                            if (!isEmailAllowed(userInfo.email)) {
-                                showToast('このアカウントにはアクセス権がありません。管理者に連絡してください。', 'error');
-                                return;
-                            }
-                            state.currentUser = {
-                                name: userInfo.name,
-                                email: userInfo.email,
-                                photo: userInfo.picture
-                            };
-                            sessionStorage.setItem('aikasu_user', JSON.stringify(state.currentUser));
-                            showApp();
-                        })
-                        .catch(() => {
-                            showToast('ユーザー情報の取得に失敗しました', 'error');
-                        });
-                    }
-                }
-            });
-            client.requestAccessToken();
-            return;
-        } catch (e) {
-            console.error('Google OAuth error:', e);
-            showToast('Google認証でエラーが発生しました', 'error');
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({
+        prompt: 'select_account'
+    });
+
+    try {
+        const result = await auth.signInWithPopup(provider);
+        // onAuthStateChanged が処理するため、ここでは何もしなくてOK
+    } catch (e) {
+        console.error('Google login error:', e);
+        if (e.code === 'auth/popup-closed-by-user') {
+            // ユーザーがポップアップを閉じた
             return;
         }
+        if (e.code === 'auth/unauthorized-domain') {
+            showToast('このドメインはFirebaseで承認されていません。Firebase ConsoleのAuthenticationでドメインを追加してください。', 'error');
+            return;
+        }
+        showToast('ログインに失敗しました: ' + (e.message || '不明なエラー'), 'error');
     }
-
-    // Google Client ID 未設定時：ローカル認証モード（許可リストで厳格にチェック）
-    const email = prompt(
-        'Googleアカウントのメールアドレスを入力してください\n\n' +
-        '※ Google Client ID未設定のため、ローカル認証モードです。\n' +
-        '※ 許可されたメールアドレスのみログインできます。'
-    );
-    if (!email) return;
-
-    const normalizedEmail = email.toLowerCase().trim();
-
-    // 許可リストに含まれているか厳格にチェック
-    if (!isEmailAllowed(normalizedEmail)) {
-        showToast('このメールアドレスにはアクセス権がありません。', 'error');
-        return;
-    }
-
-    const name = normalizedEmail.split('@')[0];
-    state.currentUser = { name, email: normalizedEmail, photo: null };
-    sessionStorage.setItem('aikasu_user', JSON.stringify(state.currentUser));
-    showApp();
 }
 
-function handleLogout() {
-    state.currentUser = null;
-    sessionStorage.removeItem('aikasu_user');
-    showLogin();
+async function handleLogout() {
+    try {
+        stopRealtimeListeners();
+        await auth.signOut();
+        state.currentUser = null;
+        state.deals = [];
+        state.activityLog = [];
+        showLogin();
+    } catch (e) {
+        console.error('Logout error:', e);
+    }
 }
 
 function showLogin() {
@@ -279,7 +445,6 @@ function updateUserDisplay() {
 // Navigation
 // ==========================================
 function initNavigation() {
-    // サイドバーナビ（PC用）
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
@@ -288,7 +453,6 @@ function initNavigation() {
         });
     });
 
-    // モバイルボトムナビ
     document.querySelectorAll('.bottom-nav-item[data-view]').forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
@@ -297,7 +461,6 @@ function initNavigation() {
         });
     });
 
-    // モバイル用「追加」ボタン
     const mobileAddBtn = document.getElementById('mobile-add-btn');
     if (mobileAddBtn) {
         mobileAddBtn.addEventListener('click', (e) => {
@@ -306,7 +469,6 @@ function initNavigation() {
         });
     }
 
-    // ハンバーガーメニュー（タブレット用）
     document.getElementById('mobile-menu-btn').addEventListener('click', () => {
         openSidebar();
     });
@@ -315,13 +477,11 @@ function initNavigation() {
         document.getElementById('sidebar').classList.toggle('collapsed');
     });
 
-    // サイドバーオーバーレイ（モバイル/タブレット用）
     const overlay = document.getElementById('sidebar-overlay');
     if (overlay) {
         overlay.addEventListener('click', closeSidebar);
     }
 
-    // メインコンテンツクリックでサイドバー閉じる
     document.querySelector('.main-content').addEventListener('click', () => {
         closeSidebar();
     });
@@ -340,17 +500,14 @@ function closeSidebar() {
 function switchView(view) {
     state.currentView = view;
 
-    // サイドバーナビのactive更新
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     const sidebarItem = document.querySelector(`.nav-item[data-view="${view}"]`);
     if (sidebarItem) sidebarItem.classList.add('active');
 
-    // ボトムナビのactive更新
     document.querySelectorAll('.bottom-nav-item').forEach(n => n.classList.remove('active'));
     const bottomItem = document.querySelector(`.bottom-nav-item[data-view="${view}"]`);
     if (bottomItem) bottomItem.classList.add('active');
 
-    // ビュー切替
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById(`view-${view}`).classList.add('active');
 
@@ -362,7 +519,6 @@ function switchView(view) {
     };
     document.getElementById('page-title').textContent = titles[view];
 
-    // サイドバー閉じる（モバイル時）
     closeSidebar();
 
     if (view === 'report') renderReport();
@@ -399,7 +555,6 @@ function renderKanban() {
 
         const body = col.querySelector('.column-body');
 
-        // Drag & Drop
         body.addEventListener('dragover', (e) => {
             e.preventDefault();
             body.classList.add('drag-over');
@@ -428,14 +583,12 @@ function renderKanban() {
         board.appendChild(col);
     });
 
-    // モバイル用：フェーズインジケーター（スクロールで現在のカラムを表示）
     if (isMobile()) {
         renderPhaseIndicator(board);
     }
 }
 
 function renderPhaseIndicator(board) {
-    // 既存インジケーターを削除
     const existing = document.querySelector('.phase-indicator');
     if (existing) existing.remove();
 
@@ -445,11 +598,9 @@ function renderPhaseIndicator(board) {
         `<span class="phase-dot ${i === 0 ? 'active' : ''}" data-index="${i}"></span>`
     ).join('');
 
-    // カンバンビューの先頭に挿入
     const kanbanView = document.getElementById('view-kanban');
     kanbanView.insertBefore(indicator, board);
 
-    // スクロール連動
     board.addEventListener('scroll', () => {
         const colWidth = board.scrollWidth / PHASES.length;
         const activeIndex = Math.round(board.scrollLeft / colWidth);
@@ -458,7 +609,6 @@ function renderPhaseIndicator(board) {
         });
     });
 
-    // ドットタップでスクロール
     indicator.querySelectorAll('.phase-dot').forEach(dot => {
         dot.addEventListener('click', () => {
             const index = parseInt(dot.dataset.index);
@@ -511,7 +661,6 @@ function createDealCard(deal) {
         `;
     }
 
-    // モバイル用：フェーズ移動ボタン（前へ・次へ）
     const currentIndex = PHASES.indexOf(deal.phase);
     const hasPrev = currentIndex > 0;
     const hasNext = currentIndex < PHASES.length - 1;
@@ -532,12 +681,9 @@ function createDealCard(deal) {
 
     card.innerHTML = html;
 
-    // タップで編集（モバイルではdblclickが使いにくいのでシングルタップ対応）
     card.addEventListener('dblclick', () => openDealModal(deal.id));
     card.addEventListener('click', (e) => {
-        // ボタンクリックは除外
         if (e.target.closest('.card-menu-btn') || e.target.closest('.mobile-phase-btn')) return;
-        // モバイルの場合のみシングルタップで開く
         if (isMobile()) openDealModal(deal.id);
     });
 
@@ -559,8 +705,19 @@ function moveDealToPhase(dealId, newPhase) {
     deal.phase = newPhase;
     deal.updatedAt = new Date().toISOString();
 
-    addActivity(deal.id, `${deal.company}: ${oldPhase} → ${newPhase}`, deal.member);
-    saveState();
+    const activity = {
+        id: generateId(),
+        dealId: deal.id,
+        message: `${deal.company}: ${oldPhase} → ${newPhase}`,
+        member: deal.member,
+        timestamp: new Date().toISOString()
+    };
+    state.activityLog.unshift(activity);
+
+    // Firestoreに保存
+    saveDealToFirestore(deal);
+    saveActivityToFirestore(activity);
+
     renderKanban();
     showToast(`${deal.company} を「${newPhase}」に移動しました`);
 }
@@ -584,7 +741,6 @@ function initDealModal() {
         if (e.target.id === 'deal-modal') closeDealModal();
     });
 
-    // Activity modal
     document.getElementById('activity-modal-close').addEventListener('click', () => {
         document.getElementById('activity-modal').classList.remove('show');
     });
@@ -655,16 +811,23 @@ function saveDeal() {
         updatedAt: new Date().toISOString()
     };
 
+    let activity;
+
     if (state.editingDealId) {
         const deal = state.deals.find(d => d.id === state.editingDealId);
         if (deal) {
             const oldPhase = deal.phase;
             Object.assign(deal, data);
+
             if (oldPhase !== data.phase) {
-                addActivity(deal.id, `${company}: ${oldPhase} → ${data.phase}`, member);
+                activity = { id: generateId(), dealId: deal.id, message: `${company}: ${oldPhase} → ${data.phase}`, member, timestamp: new Date().toISOString() };
             } else {
-                addActivity(deal.id, `${company}: 情報更新`, member);
+                activity = { id: generateId(), dealId: deal.id, message: `${company}: 情報更新`, member, timestamp: new Date().toISOString() };
             }
+            state.activityLog.unshift(activity);
+
+            saveDealToFirestore(deal);
+            saveActivityToFirestore(activity);
             showToast('案件を更新しました');
         }
     } else {
@@ -674,11 +837,14 @@ function saveDeal() {
             createdAt: new Date().toISOString()
         };
         state.deals.push(newDeal);
-        addActivity(newDeal.id, `${company}: 新規追加（${data.phase}）`, member);
+        activity = { id: generateId(), dealId: newDeal.id, message: `${company}: 新規追加（${data.phase}）`, member, timestamp: new Date().toISOString() };
+        state.activityLog.unshift(activity);
+
+        saveDealToFirestore(newDeal);
+        saveActivityToFirestore(activity);
         showToast('案件を追加しました');
     }
 
-    saveState();
     closeDealModal();
     renderAll();
 }
@@ -690,8 +856,13 @@ function deleteDeal() {
     if (!confirm(`「${deal.company}」を削除しますか？`)) return;
 
     state.deals = state.deals.filter(d => d.id !== state.editingDealId);
-    addActivity(null, `${deal.company}: 削除`, deal.member);
-    saveState();
+
+    const activity = { id: generateId(), dealId: null, message: `${deal.company}: 削除`, member: deal.member, timestamp: new Date().toISOString() };
+    state.activityLog.unshift(activity);
+
+    deleteDealFromFirestore(state.editingDealId);
+    saveActivityToFirestore(activity);
+
     closeDealModal();
     renderAll();
     showToast('案件を削除しました');
@@ -700,19 +871,7 @@ function deleteDeal() {
 // ==========================================
 // Activity Log
 // ==========================================
-function addActivity(dealId, message, member) {
-    state.activityLog.unshift({
-        id: generateId(),
-        dealId,
-        message,
-        member,
-        timestamp: new Date().toISOString()
-    });
-    // Keep last 500 entries
-    if (state.activityLog.length > 500) {
-        state.activityLog = state.activityLog.slice(0, 500);
-    }
-}
+// addActivity は直接呼ばず、各操作で activity オブジェクトを作って saveActivityToFirestore する
 
 // ==========================================
 // List View
@@ -791,13 +950,11 @@ function renderReport() {
     let deals = state.deals;
     if (member !== 'all') deals = deals.filter(d => d.member === member);
 
-    // Calculate date range
     const now = new Date();
     const periodDays = period === 'weekly' ? 7 : 30;
     const periodStart = new Date(now);
     periodStart.setDate(periodStart.getDate() - periodDays);
 
-    // Activities in period
     const periodActivities = state.activityLog.filter(a => {
         const aDate = new Date(a.timestamp);
         if (aDate < periodStart) return false;
@@ -805,20 +962,18 @@ function renderReport() {
         return true;
     });
 
-    // Phase counts
     const phaseCounts = {};
     PHASES.forEach(p => phaseCounts[p] = 0);
     deals.forEach(d => { if (phaseCounts[d.phase] !== undefined) phaseCounts[d.phase]++; });
 
-    // KPIs
     const totalDeals = deals.length;
     const totalActions = periodActivities.length;
     const wonDeals = deals.filter(d => d.phase === '受注' || d.phase === '契約書対応中' || d.phase === '入金済み').length;
     const winRate = totalDeals > 0 ? Math.round((wonDeals / totalDeals) * 100) : 0;
     const totalAmount = deals.filter(d => d.phase === '受注' || d.phase === '契約書対応中' || d.phase === '入金済み').reduce((s, d) => s + (d.amount || 0), 0);
     const appointmentRate = (() => {
-        const callCount = deals.filter(d => PHASES.indexOf(d.phase) >= 1).length; // コール中 or beyond
-        const appoCount = deals.filter(d => PHASES.indexOf(d.phase) >= 2).length; // アポ取得 or beyond
+        const callCount = deals.filter(d => PHASES.indexOf(d.phase) >= 1).length;
+        const appoCount = deals.filter(d => PHASES.indexOf(d.phase) >= 2).length;
         return callCount > 0 ? Math.round((appoCount / callCount) * 100) : 0;
     })();
 
@@ -910,24 +1065,20 @@ function analyzeMember(name, deals, activities, periodDays) {
     const conversionRate = dealCount > 0 ? Math.round((wonCount / dealCount) * 100) : 0;
     const appoRate = dealCount > 0 ? Math.round((appoCount / dealCount) * 100) : 0;
 
-    // Thresholds (per week baseline)
     const weekFactor = periodDays / 7;
     const minActions = Math.round(10 * weekFactor);
     const goodActions = Math.round(25 * weekFactor);
 
-    // Quantity assessment
     let quantityStatus, quantityLabel;
     if (actionCount < minActions) { quantityStatus = 'red'; quantityLabel = '要改善'; }
     else if (actionCount < goodActions) { quantityStatus = 'yellow'; quantityLabel = '普通'; }
     else { quantityStatus = 'blue'; quantityLabel = '良好'; }
 
-    // Quality assessment
     let qualityStatus, qualityLabel;
     if (conversionRate < 5) { qualityStatus = 'red'; qualityLabel = '要改善'; }
     else if (conversionRate < 20) { qualityStatus = 'yellow'; qualityLabel = '普通'; }
     else { qualityStatus = 'blue'; qualityLabel = '良好'; }
 
-    // Overall
     let overallStatus, overallLabel;
     if (quantityStatus === 'red' || qualityStatus === 'red') {
         overallStatus = 'red'; overallLabel = '要介入';
@@ -937,7 +1088,6 @@ function analyzeMember(name, deals, activities, periodDays) {
         overallStatus = 'blue'; overallLabel = '順調';
     }
 
-    // Advice
     let advice;
     if (quantityStatus === 'red' && qualityStatus === 'red') {
         advice = '行動量・質ともに改善が必要です。まず行動量を増やし、ロープレ等で質を高めましょう。';
@@ -964,11 +1114,9 @@ function renderExecutiveSummary(deals, activities, totalDeals, wonDeals, totalAc
     const container = document.getElementById('executive-summary');
     const periodLabel = periodDays === 7 ? '今週' : '今月';
 
-    // Find critical issues
     const issues = [];
     const positives = [];
 
-    // Low activity members
     MEMBERS.forEach(m => {
         const mActs = activities.filter(a => a.member === m);
         const weekFactor = periodDays / 7;
@@ -977,9 +1125,7 @@ function renderExecutiveSummary(deals, activities, totalDeals, wonDeals, totalAc
         }
     });
 
-    // Pipeline issues
     const listCount = deals.filter(d => d.phase === 'リスト').length;
-    const callCount = deals.filter(d => d.phase === 'コール中').length;
     if (listCount > totalDeals * 0.5 && totalDeals > 5) {
         issues.push('<span class="highlight-yellow">リストに滞留している案件が多い（コール着手が遅れている可能性）</span>');
     }
@@ -1151,14 +1297,14 @@ function addAllowedEmail() {
     }
     state.allowedEmails.push(email);
     input.value = '';
-    saveState();
+    saveSettingsToFirestore();
     renderSettings();
     showToast('メールアドレスを追加しました');
 }
 
 function removeAllowedEmail(index) {
     state.allowedEmails.splice(index, 1);
-    saveState();
+    saveSettingsToFirestore();
     renderSettings();
     showToast('メールアドレスを削除しました');
 }
@@ -1180,17 +1326,43 @@ function exportData() {
     showToast('データをエクスポートしました');
 }
 
-function importData(e) {
+async function importData(e) {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
         try {
             const data = JSON.parse(ev.target.result);
-            if (data.deals) state.deals = data.deals;
-            if (data.activityLog) state.activityLog = data.activityLog;
-            if (data.allowedEmails) state.allowedEmails = data.allowedEmails;
-            saveState();
+
+            if (data.deals) {
+                state.deals = data.deals;
+                // Firestoreにバッチ書き込み
+                const batchSize = 500;
+                for (let i = 0; i < data.deals.length; i += batchSize) {
+                    const batch = db.batch();
+                    data.deals.slice(i, i + batchSize).forEach(deal => {
+                        batch.set(dealsRef.doc(deal.id), deal);
+                    });
+                    await batch.commit();
+                }
+            }
+            if (data.activityLog) {
+                state.activityLog = data.activityLog;
+                const recentActivity = data.activityLog.slice(0, 500);
+                const batchSize = 500;
+                for (let i = 0; i < recentActivity.length; i += batchSize) {
+                    const batch = db.batch();
+                    recentActivity.slice(i, i + batchSize).forEach(act => {
+                        batch.set(activityRef.doc(act.id), act);
+                    });
+                    await batch.commit();
+                }
+            }
+            if (data.allowedEmails) {
+                state.allowedEmails = data.allowedEmails;
+                await saveSettingsToFirestore();
+            }
+
             renderAll();
             showToast('データをインポートしました');
         } catch (err) {
@@ -1204,7 +1376,7 @@ function importData(e) {
 // ==========================================
 // Sample Data
 // ==========================================
-function loadSampleData() {
+async function loadSampleData() {
     if (state.deals.length > 0 && !confirm('既存データを上書きしてサンプルデータを読み込みますか？')) return;
 
     const companies = [
@@ -1229,8 +1401,30 @@ function loadSampleData() {
         'メール返信待ち', 'ニーズヒアリング', '社内稟議待ち', 'サンプル送付'
     ];
 
+    // 既存データをFirestoreから削除
+    showToast('サンプルデータを準備中...', 'info');
+
+    // 既存deals削除
+    const existingDeals = await dealsRef.get();
+    const deleteBatch1 = db.batch();
+    existingDeals.forEach(doc => deleteBatch1.delete(doc.ref));
+    if (!existingDeals.empty) await deleteBatch1.commit();
+
+    // 既存activity削除
+    const existingActs = await activityRef.get();
+    const batchSize = 500;
+    const actDocs = existingActs.docs;
+    for (let i = 0; i < actDocs.length; i += batchSize) {
+        const batch = db.batch();
+        actDocs.slice(i, i + batchSize).forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+    }
+
     state.deals = [];
     state.activityLog = [];
+
+    const newDeals = [];
+    const newActivities = [];
 
     companies.forEach((company, i) => {
         const member = MEMBERS[i % MEMBERS.length];
@@ -1259,14 +1453,13 @@ function loadSampleData() {
             updatedAt: daysAgo(Math.max(0, daysOffset - Math.floor(Math.random() * 5)))
         };
 
-        state.deals.push(deal);
+        newDeals.push(deal);
 
-        // Add some activity for this deal
         const actCount = Math.floor(Math.random() * 4) + 1;
         for (let j = 0; j < actCount; j++) {
             const actPhase = PHASES[Math.min(phaseIndex, Math.floor(Math.random() * (phaseIndex + 1)))];
             const nextPhase = PHASES[Math.min(PHASES.length - 1, PHASES.indexOf(actPhase) + 1)];
-            state.activityLog.push({
+            newActivities.push({
                 id: generateId(),
                 dealId: deal.id,
                 message: `${company}: ${actPhase} → ${nextPhase}`,
@@ -1276,11 +1469,24 @@ function loadSampleData() {
         }
     });
 
-    // Sort activity log by timestamp
-    state.activityLog.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    // Firestoreにバッチ書き込み
+    for (let i = 0; i < newDeals.length; i += batchSize) {
+        const batch = db.batch();
+        newDeals.slice(i, i + batchSize).forEach(deal => {
+            batch.set(dealsRef.doc(deal.id), deal);
+        });
+        await batch.commit();
+    }
 
-    saveState();
-    renderAll();
+    newActivities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    for (let i = 0; i < newActivities.length; i += batchSize) {
+        const batch = db.batch();
+        newActivities.slice(i, i + batchSize).forEach(act => {
+            batch.set(activityRef.doc(act.id), act);
+        });
+        await batch.commit();
+    }
+
     showToast('サンプルデータを読み込みました（36件）');
 }
 
@@ -1297,7 +1503,6 @@ function initFilters() {
     document.getElementById('list-search').addEventListener('input', () => renderListView());
     document.getElementById('list-sort').addEventListener('change', () => renderListView());
 
-    // Report period tabs
     document.querySelectorAll('.period-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
@@ -1327,8 +1532,8 @@ function renderAll() {
 // Initialize
 // ==========================================
 function init() {
-    loadState();
-    initAuth();
+    loadStateFromLocal(); // ローカルデータをまず読み込み（オフライン対応）
+    initAuth();           // Firebase Auth 初期化（onAuthStateChangedでリスナー開始）
     initNavigation();
     initDealModal();
     initFilters();
