@@ -8,7 +8,7 @@
 // ==========================================
 const PHASES = [
     'リスト', '問い合わせ送付', 'コール中', 'アポ取得', 'アポ実施',
-    '提案済み', '受注', '契約書対応中', '入金済み'
+    '提案済み', '受注', '契約書対応中', '入金済み', 'クローズ'
 ];
 
 const MEMBERS = ['阿部', '上島', '米井', '中村', '野口', '市原', '長田'];
@@ -43,6 +43,21 @@ const TAG_COLORS = {
     'RPO': '#e74c3c',
     'コンサルティング': '#9b59b6',
     'その他': '#868e96'
+};
+
+// 架電結果タグ
+const CALL_RESULTS = [
+    '再架電', '受付NG', '担当NG', 'アポ取得', '不通', '対象外', '現アナ'
+];
+
+const CALL_RESULT_COLORS = {
+    '再架電': '#0077b6',
+    '受付NG': '#e67e22',
+    '担当NG': '#e74c3c',
+    'アポ取得': '#29cc6b',
+    '不通': '#868e96',
+    '対象外': '#6c757d',
+    '現アナ': '#95a5a6'
 };
 
 // 許可されたメールアドレス（ここに登録されたアドレスのみログイン可能）
@@ -664,11 +679,16 @@ function createDealCard(deal) {
         <span class="deal-card-member" style="background:${MEMBER_COLORS[deal.member] || '#005c91'}">${escapeHtml(deal.member)}</span>
     `;
 
-    // タグ表示
+    // 商談種別タグ表示
     if (deal.tags && deal.tags.length > 0) {
         html += `<div class="deal-card-tags">${deal.tags.map(t =>
             `<span class="deal-tag" style="background:${TAG_COLORS[t] || '#868e96'}">${escapeHtml(t)}</span>`
         ).join('')}</div>`;
+    }
+
+    // 架電結果タグ表示
+    if (deal.callResult) {
+        html += `<div class="deal-card-call-result"><span class="call-result-tag" style="background:${CALL_RESULT_COLORS[deal.callResult] || '#868e96'}"><i class="fas fa-phone-alt"></i> ${escapeHtml(deal.callResult)}</span></div>`;
     }
 
     let infoHtml = '';
@@ -688,6 +708,12 @@ function createDealCard(deal) {
                 ${deal.nextDate ? formatDate(deal.nextDate) + ' ' : ''}${escapeHtml(deal.nextAction)}
             </div>
         `;
+    }
+
+    // メモ表示（先頭40文字まで）
+    if (deal.notes) {
+        const truncated = deal.notes.length > 40 ? deal.notes.substring(0, 40) + '…' : deal.notes;
+        html += `<div class="deal-card-memo"><i class="fas fa-sticky-note"></i> ${escapeHtml(truncated)}</div>`;
     }
 
     const currentIndex = PHASES.indexOf(deal.phase);
@@ -797,6 +823,7 @@ function openDealModal(dealId = null) {
         document.getElementById('deal-amount').value = deal.amount || '';
         document.getElementById('deal-notes').value = deal.notes || '';
         setDealTags(deal.tags || []);
+        setCallResult(deal.callResult || '');
     } else {
         title.textContent = '案件追加';
         deleteBtn.style.display = 'none';
@@ -811,6 +838,7 @@ function openDealModal(dealId = null) {
         document.getElementById('deal-amount').value = '';
         document.getElementById('deal-notes').value = '';
         setDealTags([]);
+        setCallResult('');
     }
 
     modal.classList.add('show');
@@ -834,6 +862,18 @@ function setDealTags(tags) {
     });
 }
 
+// 架電結果のヘルパー
+function getCallResult() {
+    const selected = document.querySelector('.call-result-radio:checked');
+    return selected ? selected.value : '';
+}
+
+function setCallResult(value) {
+    document.querySelectorAll('.call-result-radio').forEach(r => {
+        r.checked = r.value === value;
+    });
+}
+
 function saveDeal() {
     const company = document.getElementById('deal-company').value.trim();
     const member = document.getElementById('deal-member').value;
@@ -848,6 +888,7 @@ function saveDeal() {
         phone: document.getElementById('deal-phone').value.trim(),
         email: document.getElementById('deal-email').value.trim(),
         tags: getDealTags(),
+        callResult: getCallResult(),
         nextAction: document.getElementById('deal-next-action').value.trim(),
         nextDate: document.getElementById('deal-next-date').value,
         amount: document.getElementById('deal-amount').value ? Number(document.getElementById('deal-amount').value) : 0,

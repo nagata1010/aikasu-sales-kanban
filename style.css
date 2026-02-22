@@ -487,6 +487,15 @@ body {
     text-align: center;
 }
 
+/* クローズフェーズ: 少し薄く */
+.kanban-column[data-phase="クローズ"] {
+    opacity: 0.65;
+}
+
+.kanban-column[data-phase="クローズ"] .column-header {
+    border-bottom-color: var(--gray-400);
+}
+
 .column-header-amount {
     font-size: 0.78rem;
     font-weight: 700;
@@ -621,6 +630,43 @@ body {
     padding: 1px 7px;
     border-radius: 8px;
     white-space: nowrap;
+}
+
+/* Call Result Tag on Card */
+.deal-card-call-result {
+    margin-bottom: 4px;
+}
+
+.call-result-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--white);
+    padding: 2px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+
+.call-result-tag i { font-size: 0.6rem; }
+
+/* Memo on Card */
+.deal-card-memo {
+    font-size: 0.72rem;
+    color: var(--gray-500);
+    margin-top: 4px;
+    line-height: 1.3;
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.deal-card-memo i {
+    color: var(--gray-400);
+    font-size: 0.65rem;
+    margin-top: 2px;
+    flex-shrink: 0;
 }
 
 .deal-card-amount {
@@ -1299,7 +1345,8 @@ body {
     -webkit-tap-highlight-color: transparent;
 }
 
-.tag-option input[type="checkbox"] {
+.tag-option input[type="checkbox"],
+.tag-option input[type="radio"] {
     display: none;
 }
 
@@ -1322,7 +1369,28 @@ body {
     border-color: var(--tag-color, var(--primary));
 }
 
-.tag-chip:hover {
+.tag-chip:hover,
+.call-result-chip:hover {
+    border-color: var(--tag-color, var(--primary));
+}
+
+/* Call Result Chips in Modal */
+.call-result-chip {
+    display: inline-block;
+    padding: 5px 12px;
+    border-radius: 16px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--gray-600);
+    background: var(--gray-100);
+    border: 1.5px solid var(--gray-200);
+    transition: all 0.15s;
+    user-select: none;
+}
+
+.tag-option input[type="radio"]:checked + .call-result-chip {
+    color: var(--white);
+    background: var(--tag-color, var(--primary));
     border-color: var(--tag-color, var(--primary));
 }
 
@@ -1810,7 +1878,8 @@ body {
         /* iOS Safariでのズーム防止 */
     }
 
-    .tag-chip {
+    .tag-chip,
+    .call-result-chip {
         padding: 7px 14px;
         font-size: 0.85rem;
     }
