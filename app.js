@@ -1024,7 +1024,7 @@ function openDealModal(dealId = null) {
     const deleteBtn = document.getElementById('modal-delete');
 
     // Populate company-id select from state.companies
-    const companySelect = document.getElementById('company-id');
+    const companySelect = document.getElementById('deal-company-id');
     if (companySelect) {
         companySelect.innerHTML = '<option value="">-- 企業を選択 --</option>' +
             state.companies.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`).join('');
@@ -1052,15 +1052,15 @@ function openDealModal(dealId = null) {
         setCallResult(deal.callResult || '');
 
         // New fields
-        const expectedRevenueEl = document.getElementById('expected-revenue');
+        const expectedRevenueEl = document.getElementById('deal-expected-revenue');
         if (expectedRevenueEl) expectedRevenueEl.value = deal.expectedRevenue || '';
-        const probabilityEl = document.getElementById('probability');
+        const probabilityEl = document.getElementById('deal-probability');
         if (probabilityEl) probabilityEl.value = deal.probability || '';
-        const expectedCloseDateEl = document.getElementById('expected-close-date');
+        const expectedCloseDateEl = document.getElementById('deal-expected-close-date');
         if (expectedCloseDateEl) expectedCloseDateEl.value = deal.expectedCloseDate || '';
 
-        const approvalRequiredYes = document.getElementById('approval-required-yes');
-        const approvalRequiredNo = document.getElementById('approval-required-no');
+        const approvalRequiredYes = document.querySelector('input[name="approval-required"][value="必要"]');
+        const approvalRequiredNo = document.querySelector('input[name="approval-required"][value="不要"]');
         if (approvalRequiredYes && approvalRequiredNo) {
             if (deal.approvalRequired) {
                 approvalRequiredYes.checked = true;
@@ -1068,30 +1068,30 @@ function openDealModal(dealId = null) {
                 approvalRequiredNo.checked = true;
             }
         }
-        const approvalFields = document.getElementById('approval-fields');
+        const approvalFields = document.getElementById('approval-conditional-fields');
         if (approvalFields) approvalFields.style.display = deal.approvalRequired ? 'block' : 'none';
 
-        const approvalStatusEl = document.getElementById('approval-status');
+        const approvalStatusEl = document.getElementById('deal-approval-status');
         if (approvalStatusEl) approvalStatusEl.value = deal.approvalStatus || '';
-        const approverEl = document.getElementById('approver');
+        const approverEl = document.getElementById('deal-approver');
         if (approverEl) approverEl.value = deal.approver || '';
-        const approvalDateEl = document.getElementById('approval-date');
+        const approvalDateEl = document.getElementById('deal-approval-date');
         if (approvalDateEl) approvalDateEl.value = deal.approvalDate || '';
 
-        const budgetConfirmedEl = document.getElementById('budget-confirmed');
+        const budgetConfirmedEl = document.getElementById('deal-budget-confirmed');
         if (budgetConfirmedEl) budgetConfirmedEl.checked = !!deal.budgetConfirmed;
 
-        const lossReasonEl = document.getElementById('loss-reason');
+        const lossReasonEl = document.getElementById('deal-loss-reason');
         if (lossReasonEl) lossReasonEl.value = deal.lossReason || '';
-        const lossDetailEl = document.getElementById('loss-detail');
+        const lossDetailEl = document.getElementById('deal-loss-detail');
         if (lossDetailEl) lossDetailEl.value = deal.lossDetail || '';
-        const competitorEl = document.getElementById('competitor');
+        const competitorEl = document.getElementById('deal-competitor');
         if (competitorEl) competitorEl.value = deal.competitor || '';
 
         if (companySelect) companySelect.value = deal.companyId || '';
 
         // Update weighted revenue display
-        const weightedDisplay = document.getElementById('weighted-revenue-display');
+        const weightedDisplay = document.getElementById('deal-weighted-revenue');
         if (weightedDisplay) {
             const rev = Number(deal.expectedRevenue) || 0;
             const prob = Number(deal.probability) || 0;
@@ -1121,40 +1121,40 @@ function openDealModal(dealId = null) {
         setCallResult('');
 
         // Clear new fields
-        const expectedRevenueEl = document.getElementById('expected-revenue');
+        const expectedRevenueEl = document.getElementById('deal-expected-revenue');
         if (expectedRevenueEl) expectedRevenueEl.value = '';
-        const probabilityEl = document.getElementById('probability');
+        const probabilityEl = document.getElementById('deal-probability');
         if (probabilityEl) probabilityEl.value = '';
-        const expectedCloseDateEl = document.getElementById('expected-close-date');
+        const expectedCloseDateEl = document.getElementById('deal-expected-close-date');
         if (expectedCloseDateEl) expectedCloseDateEl.value = '';
-        const approvalRequiredNo = document.getElementById('approval-required-no');
+        const approvalRequiredNo = document.querySelector('input[name="approval-required"][value="不要"]');
         if (approvalRequiredNo) approvalRequiredNo.checked = true;
-        const approvalFields = document.getElementById('approval-fields');
+        const approvalFields = document.getElementById('approval-conditional-fields');
         if (approvalFields) approvalFields.style.display = 'none';
-        const approvalStatusEl = document.getElementById('approval-status');
+        const approvalStatusEl = document.getElementById('deal-approval-status');
         if (approvalStatusEl) approvalStatusEl.value = '';
-        const approverEl = document.getElementById('approver');
+        const approverEl = document.getElementById('deal-approver');
         if (approverEl) approverEl.value = '';
-        const approvalDateEl = document.getElementById('approval-date');
+        const approvalDateEl = document.getElementById('deal-approval-date');
         if (approvalDateEl) approvalDateEl.value = '';
-        const budgetConfirmedEl = document.getElementById('budget-confirmed');
+        const budgetConfirmedEl = document.getElementById('deal-budget-confirmed');
         if (budgetConfirmedEl) budgetConfirmedEl.checked = false;
-        const lossReasonEl = document.getElementById('loss-reason');
+        const lossReasonEl = document.getElementById('deal-loss-reason');
         if (lossReasonEl) lossReasonEl.value = '';
-        const lossDetailEl = document.getElementById('loss-detail');
+        const lossDetailEl = document.getElementById('deal-loss-detail');
         if (lossDetailEl) lossDetailEl.value = '';
-        const competitorEl = document.getElementById('competitor');
+        const competitorEl = document.getElementById('deal-competitor');
         if (competitorEl) competitorEl.value = '';
         if (companySelect) companySelect.value = '';
-        const weightedDisplay = document.getElementById('weighted-revenue-display');
+        const weightedDisplay = document.getElementById('deal-weighted-revenue');
         if (weightedDisplay) weightedDisplay.textContent = '¥0';
 
         // Clear deal tasks and activities containers
-        const taskList = document.getElementById('deal-task-list');
+        const taskList = document.getElementById('deal-tasks-list');
         if (taskList) taskList.innerHTML = '<p style="color:#adb5bd;text-align:center;">案件を保存してからタスクを追加できます</p>';
-        const actList = document.getElementById('deal-activity-list');
+        const actList = document.getElementById('deal-activity-timeline');
         if (actList) actList.innerHTML = '<p style="color:#adb5bd;text-align:center;">案件を保存してからアクティビティを追加できます</p>';
-        const playbookContainer = document.getElementById('playbook-checks');
+        const playbookContainer = document.getElementById('deal-playbook-checks');
         if (playbookContainer) playbookContainer.innerHTML = '';
     }
 
@@ -1197,18 +1197,18 @@ function saveDeal() {
     if (!company) { showToast('企業名を入力してください', 'error'); return; }
     if (!member) { showToast('担当者を選択してください', 'error'); return; }
 
-    const expectedRevenueEl = document.getElementById('expected-revenue');
-    const probabilityEl = document.getElementById('probability');
-    const expectedCloseDateEl = document.getElementById('expected-close-date');
-    const approvalRequiredYes = document.getElementById('approval-required-yes');
-    const approvalStatusEl = document.getElementById('approval-status');
-    const approverEl = document.getElementById('approver');
-    const approvalDateEl = document.getElementById('approval-date');
-    const budgetConfirmedEl = document.getElementById('budget-confirmed');
-    const lossReasonEl = document.getElementById('loss-reason');
-    const lossDetailEl = document.getElementById('loss-detail');
-    const competitorEl = document.getElementById('competitor');
-    const companyIdEl = document.getElementById('company-id');
+    const expectedRevenueEl = document.getElementById('deal-expected-revenue');
+    const probabilityEl = document.getElementById('deal-probability');
+    const expectedCloseDateEl = document.getElementById('deal-expected-close-date');
+    const approvalRequiredYes = document.querySelector('input[name="approval-required"][value="必要"]');
+    const approvalStatusEl = document.getElementById('deal-approval-status');
+    const approverEl = document.getElementById('deal-approver');
+    const approvalDateEl = document.getElementById('deal-approval-date');
+    const budgetConfirmedEl = document.getElementById('deal-budget-confirmed');
+    const lossReasonEl = document.getElementById('deal-loss-reason');
+    const lossDetailEl = document.getElementById('deal-loss-detail');
+    const competitorEl = document.getElementById('deal-competitor');
+    const companyIdEl = document.getElementById('deal-company-id');
 
     const data = {
         company,
@@ -1974,9 +1974,9 @@ function initDealModalTabs() {
     activateDealTab('deal-tab-basic');
 
     // Approval required radio toggle
-    const approvalYes = document.getElementById('approval-required-yes');
-    const approvalNo = document.getElementById('approval-required-no');
-    const approvalFields = document.getElementById('approval-fields');
+    const approvalYes = document.querySelector('input[name="approval-required"][value="必要"]');
+    const approvalNo = document.querySelector('input[name="approval-required"][value="不要"]');
+    const approvalFields = document.getElementById('approval-conditional-fields');
     if (approvalYes && approvalNo && approvalFields) {
         approvalYes.addEventListener('change', () => {
             approvalFields.style.display = approvalYes.checked ? 'block' : 'none';
@@ -1987,9 +1987,9 @@ function initDealModalTabs() {
     }
 
     // Auto-calculate weighted revenue
-    const expectedRevenueEl = document.getElementById('expected-revenue');
-    const probabilityEl = document.getElementById('probability');
-    const weightedDisplay = document.getElementById('weighted-revenue-display');
+    const expectedRevenueEl = document.getElementById('deal-expected-revenue');
+    const probabilityEl = document.getElementById('deal-probability');
+    const weightedDisplay = document.getElementById('deal-weighted-revenue');
     if (expectedRevenueEl && probabilityEl && weightedDisplay) {
         const calcWeighted = () => {
             const rev = Number(expectedRevenueEl.value) || 0;
@@ -2014,7 +2014,7 @@ const PLAYBOOK_ITEMS = {
 };
 
 function renderPlaybookChecks(deal) {
-    const container = document.getElementById('playbook-checks');
+    const container = document.getElementById('deal-playbook-checks');
     if (!container) return;
 
     const phase = deal.phase || '';
@@ -2056,7 +2056,7 @@ function renderPlaybookChecks(deal) {
 // Deal Tasks (inline in deal modal)
 // ==========================================
 function renderDealTasks(dealId) {
-    const container = document.getElementById('deal-task-list');
+    const container = document.getElementById('deal-tasks-list');
     if (!container) return;
 
     const tasks = state.dealTasks.filter(t => t.dealId === dealId);
@@ -2106,8 +2106,8 @@ function initDealTaskAdd() {
             showToast('先に案件を保存してください', 'error');
             return;
         }
-        const titleInput = document.getElementById('deal-task-title');
-        const dueDateInput = document.getElementById('deal-task-due-date');
+        const titleInput = document.getElementById('deal-task-input');
+        const dueDateInput = document.getElementById('deal-task-date');
         const title = titleInput ? titleInput.value.trim() : '';
         if (!title) {
             showToast('タスク名を入力してください', 'error');
@@ -2135,7 +2135,7 @@ function initDealTaskAdd() {
 // Deal Activities (inline in deal modal)
 // ==========================================
 function renderDealActivities(dealId) {
-    const container = document.getElementById('deal-activity-list');
+    const container = document.getElementById('deal-activity-timeline');
     if (!container) return;
 
     const activities = state.dealActivities.filter(a => a.dealId === dealId);
@@ -2175,8 +2175,8 @@ function initDealActivityAdd() {
             showToast('先に案件を保存してください', 'error');
             return;
         }
-        const typeSelect = document.getElementById('activity-type');
-        const detailInput = document.getElementById('activity-detail');
+        const typeSelect = document.getElementById('deal-activity-type');
+        const detailInput = document.getElementById('deal-activity-detail');
         const detail = detailInput ? detailInput.value.trim() : '';
         if (!detail) {
             showToast('アクティビティ内容を入力してください', 'error');
