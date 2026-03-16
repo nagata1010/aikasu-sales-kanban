@@ -13,6 +13,12 @@ const PHASES = [
 
 const MEMBERS = ['阿部', '上島', '米井', '中村', '野口', '市原', '長田'];
 
+const ROLES = {
+    admin: { label: '管理者', permissions: ['all'] },
+    manager: { label: 'マネージャー', permissions: ['read', 'write', 'delete', 'export'] },
+    member: { label: 'メンバー', permissions: ['read', 'write'] }
+};
+
 const MEMBER_COLORS = {
     '阿部': '#005c91',
     '上島': '#0077b6',
@@ -140,7 +146,8 @@ let state = {
     editingCompanyId: null,
     editingContactId: null,
     editingContractId: null,
-    editingContactCompanyId: null
+    editingContactCompanyId: null,
+    userRoles: {}
 };
 
 // ==========================================
@@ -420,6 +427,14 @@ function startRealtimeListeners() {
         if (state.currentView === 'dashboard') renderDashboard();
     }, err => {
         console.error('Deal Tasks listener error:', err);
+    });
+
+    // User Roles リスナー
+    db.collection('settings').doc('userRoles').onSnapshot(doc => {
+        if (doc.exists) {
+            state.userRoles = doc.data() || {};
+            renderRoleManagement();
+        }
     });
 }
 
@@ -1277,6 +1292,10 @@ function saveDeal() {
 }
 
 function deleteDeal() {
+    if (!hasPermission('delete')) {
+        alert('削除権限がありません');
+        return;
+    }
     if (!state.editingDealId) return;
     const deal = state.deals.find(d => d.id === state.editingDealId);
     if (!deal) return;
@@ -1697,6 +1716,47 @@ function initSettings() {
     document.getElementById('load-sample-btn').addEventListener('click', loadSampleData);
 }
 
+// 権限管理
+function getUserRole(email) {
+    return state.userRoles[email] || 'member';
+}
+
+function hasPermission(permission) {
+    if (!state.currentUser) return false;
+    const role = getUserRole(state.currentUser.email);
+    const rolePerms = ROLES[role]?.permissions || [];
+    return rolePerms.includes('all') || rolePerms.includes(permission);
+}
+
+function renderRoleManagement() {
+    const container = document.getElementById('role-management-list');
+    if (!container) return;
+
+    const emails = state.allowedEmails || [];
+    container.innerHTML = emails.map(email => {
+        const role = getUserRole(email);
+        return `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee">
+                <span style="font-size:14px">${escapeHtml(email)}</span>
+                <select onchange="updateUserRole('${escapeHtml(email)}', this.value)" style="padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px">
+                    <option value="admin" ${role === 'admin' ? 'selected' : ''}>管理者</option>
+                    <option value="manager" ${role === 'manager' ? 'selected' : ''}>マネージャー</option>
+                    <option value="member" ${role === 'member' ? 'selected' : ''}>メンバー</option>
+                </select>
+            </div>
+        `;
+    }).join('');
+}
+
+async function updateUserRole(email, role) {
+    state.userRoles[email] = role;
+    try {
+        await db.collection('settings').doc('userRoles').set(state.userRoles);
+    } catch (e) {
+        console.error('Error saving user roles:', e);
+    }
+}
+
 function renderSettings() {
     const list = document.getElementById('allowed-emails-list');
     list.innerHTML = state.allowedEmails.map((email, i) => `
@@ -1708,6 +1768,12 @@ function renderSettings() {
 
     if (state.allowedEmails.length === 0) {
         list.innerHTML = '<p style="color:#adb5bd;font-size:0.85rem;">メールアドレスが未登録の場合、全てのGoogleアカウントでログインが可能です。</p>';
+    }
+
+    renderRoleManagement();
+
+    if (!hasPermission('all')) {
+        document.getElementById('settings-admin-section')?.style.setProperty('display', 'none');
     }
 }
 
@@ -2317,6 +2383,10 @@ function saveLead() {
 }
 
 function deleteLead() {
+    if (!hasPermission('delete')) {
+        alert('削除権限がありません');
+        return;
+    }
     if (!state.editingLeadId) return;
     const lead = state.leads.find(l => l.id === state.editingLeadId);
     if (!lead) return;
@@ -2575,6 +2645,10 @@ function saveCompany() {
 }
 
 function deleteCompany() {
+    if (!hasPermission('delete')) {
+        alert('削除権限がありません');
+        return;
+    }
     if (!state.editingCompanyId) return;
     const company = state.companies.find(c => c.id === state.editingCompanyId);
     if (!company) return;
@@ -2740,6 +2814,10 @@ function saveContact() {
 }
 
 function deleteContact() {
+    if (!hasPermission('delete')) {
+        alert('削除権限がありません');
+        return;
+    }
     if (!state.editingContactId) return;
     const contact = state.contacts.find(c => c.id === state.editingContactId);
     if (!contact) return;
@@ -2829,13 +2907,13 @@ function openContractModal(contractId = null) {
             'contract-title': contract.title || '',
             'contract-company-id': contract.companyId || '',
             'contract-deal-id': contract.dealId || '',
-            'contract-amount': contract.amount || '',
+            'contract-monthly-amount': contract.amount || '',
             'contract-start-date': contract.startDate || '',
             'contract-end-date': contract.endDate || '',
             'contract-renewal-date': contract.renewalDate || '',
             'contract-status': contract.status || '',
             'contract-type': contract.type || '',
-            'contract-notes': contract.notes || ''
+            'contract-memo': contract.notes || ''
         };
         Object.entries(fields).forEach(([id, val]) => {
             const el = document.getElementById(id);
@@ -2844,7 +2922,7 @@ function openContractModal(contractId = null) {
     } else {
         if (title) title.textContent = '契約追加';
         if (deleteBtn) deleteBtn.style.display = 'none';
-        ['contract-title', 'contract-amount', 'contract-start-date', 'contract-end-date', 'contract-renewal-date', 'contract-notes'].forEach(id => {
+        ['contract-title', 'contract-monthly-amount', 'contract-start-date', 'contract-end-date', 'contract-renewal-date', 'contract-memo'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
@@ -2877,13 +2955,13 @@ function saveContract() {
         title: contractTitle,
         companyId: (document.getElementById('contract-company-id') || {}).value || '',
         dealId: (document.getElementById('contract-deal-id') || {}).value || '',
-        amount: document.getElementById('contract-amount') && document.getElementById('contract-amount').value ? Number(document.getElementById('contract-amount').value) : 0,
+        amount: document.getElementById('contract-monthly-amount') && document.getElementById('contract-monthly-amount').value ? Number(document.getElementById('contract-monthly-amount').value) : 0,
         startDate: (document.getElementById('contract-start-date') || {}).value || '',
         endDate: (document.getElementById('contract-end-date') || {}).value || '',
         renewalDate: (document.getElementById('contract-renewal-date') || {}).value || '',
         status: (document.getElementById('contract-status') || {}).value || '',
         type: (document.getElementById('contract-type') || {}).value || '',
-        notes: (document.getElementById('contract-notes') || {}).value || '',
+        notes: (document.getElementById('contract-memo') || {}).value || '',
         updatedAt: new Date().toISOString()
     };
 
@@ -2910,6 +2988,10 @@ function saveContract() {
 }
 
 function deleteContract() {
+    if (!hasPermission('delete')) {
+        alert('削除権限がありません');
+        return;
+    }
     if (!state.editingContractId) return;
     const contract = state.contracts.find(c => c.id === state.editingContractId);
     if (!contract) return;
@@ -2999,10 +3081,14 @@ function renderDashboard() {
     renderDashboardLeads();
     renderDashboardRenewals();
     renderDashboardMonthly();
+    renderDashboardMrrArr();
+    renderDashboardChurnRate();
+    renderDashboardMemberPerformance();
+    renderDashboardConversionFunnel();
 }
 
 function renderDashboardForecast() {
-    const container = document.getElementById('dashboard-forecast');
+    const container = document.getElementById('dashboard-forecast-summary');
     if (!container) return;
 
     const deals = state.deals.filter(d => d.phase !== 'クローズ');
@@ -3164,7 +3250,7 @@ function renderDashboardRenewals() {
 }
 
 function renderDashboardMonthly() {
-    const container = document.getElementById('dashboard-monthly');
+    const container = document.getElementById('dashboard-monthly-orders');
     if (!container) return;
 
     const now = new Date();
@@ -3204,6 +3290,128 @@ function renderDashboardMonthly() {
             }).join('')}
         </div>
     `;
+}
+
+// MRR/ARR計算
+function renderDashboardMrrArr() {
+    const container = document.getElementById('dashboard-mrr-arr');
+    if (!container) return;
+
+    const activeContracts = state.contracts.filter(c => c.status === '有効');
+    const mrr = activeContracts.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+    const arr = mrr * 12;
+
+    container.innerHTML = `
+        <div class="dashboard-stat-row">
+            <span>MRR（月次）</span>
+            <strong style="color:#2563eb">¥${mrr.toLocaleString()}</strong>
+        </div>
+        <div class="dashboard-stat-row">
+            <span>ARR（年次）</span>
+            <strong style="color:#059669">¥${arr.toLocaleString()}</strong>
+        </div>
+        <div class="dashboard-stat-row">
+            <span>有効契約数</span>
+            <strong>${activeContracts.length}件</strong>
+        </div>
+    `;
+}
+
+// 解約率
+function renderDashboardChurnRate() {
+    const container = document.getElementById('dashboard-churn-rate');
+    if (!container) return;
+
+    const total = state.contracts.length;
+    const churned = state.contracts.filter(c => c.status === '解約').length;
+    const expired = state.contracts.filter(c => c.status === '満了').length;
+    const active = state.contracts.filter(c => c.status === '有効').length;
+    const churnRate = total > 0 ? Math.round((churned / total) * 100) : 0;
+
+    container.innerHTML = `
+        <div class="dashboard-stat-row">
+            <span>解約率</span>
+            <strong style="color:${churnRate > 10 ? '#dc2626' : '#059669'}">${churnRate}%</strong>
+        </div>
+        <div class="dashboard-stat-row">
+            <span>有効</span>
+            <strong style="color:#059669">${active}</strong>
+        </div>
+        <div class="dashboard-stat-row">
+            <span>満了</span>
+            <strong style="color:#f59e0b">${expired}</strong>
+        </div>
+        <div class="dashboard-stat-row">
+            <span>解約</span>
+            <strong style="color:#dc2626">${churned}</strong>
+        </div>
+    `;
+}
+
+// メンバー別実績
+function renderDashboardMemberPerformance() {
+    const container = document.getElementById('dashboard-member-performance');
+    if (!container) return;
+
+    const memberStats = MEMBERS.map(member => {
+        const memberDeals = state.deals.filter(d => d.member === member);
+        const won = memberDeals.filter(d => d.phase === '受注' || d.phase === '契約書対応中' || d.phase === '入金済み');
+        const totalAmount = won.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+        const activeDeals = memberDeals.filter(d => !['クローズ', '入金済み'].includes(d.phase));
+        return { member, total: memberDeals.length, won: won.length, amount: totalAmount, active: activeDeals.length };
+    }).sort((a, b) => b.amount - a.amount);
+
+    const maxAmount = Math.max(...memberStats.map(m => m.amount), 1);
+
+    container.innerHTML = memberStats.map(m => `
+        <div style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-weight:600">${escapeHtml(m.member)}</span>
+                <span style="color:#666;font-size:13px">受注${m.won}件 / 進行${m.active}件</span>
+            </div>
+            <div class="dashboard-bar">
+                <div class="dashboard-bar-fill" style="width:${Math.round(m.amount / maxAmount * 100)}%;background:#2563eb"></div>
+            </div>
+            <div style="text-align:right;font-size:12px;color:#888;margin-top:2px">¥${m.amount.toLocaleString()}</div>
+        </div>
+    `).join('');
+}
+
+// コンバージョンファネル
+function renderDashboardConversionFunnel() {
+    const container = document.getElementById('dashboard-conversion-funnel');
+    if (!container) return;
+
+    const funnelPhases = ['リスト', '問い合わせ送付', 'コール中', 'アポ取得', 'アポ実施', '提案済み', '受注'];
+    const phaseCounts = funnelPhases.map(phase => {
+        // Count deals that are currently at this phase OR have passed through it
+        const atOrPast = state.deals.filter(d => {
+            const dealIdx = PHASES.indexOf(d.phase);
+            const phaseIdx = PHASES.indexOf(phase);
+            return dealIdx >= phaseIdx;
+        }).length;
+        return { phase, count: atOrPast };
+    });
+
+    const maxCount = Math.max(...phaseCounts.map(p => p.count), 1);
+
+    container.innerHTML = phaseCounts.map((p, i) => {
+        const prevCount = i > 0 ? phaseCounts[i-1].count : p.count;
+        const convRate = prevCount > 0 ? Math.round((p.count / prevCount) * 100) : 0;
+        const width = Math.round((p.count / maxCount) * 100);
+        const colors = ['#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#059669'];
+        return `
+            <div style="margin-bottom:8px">
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px">
+                    <span>${escapeHtml(p.phase)}</span>
+                    <span>${p.count}件${i > 0 ? ` (${convRate}%)` : ''}</span>
+                </div>
+                <div class="dashboard-bar">
+                    <div class="dashboard-bar-fill" style="width:${width}%;background:${colors[i] || '#3b82f6'}"></div>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 // ==========================================
