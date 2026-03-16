@@ -1031,12 +1031,7 @@ function openDealModal(dealId = null) {
     }
 
     // Reset tabs to show basic tab
-    document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.modal-tab-content').forEach(t => t.classList.remove('active'));
-    const basicTab = document.querySelector('.modal-tab[data-tab="basic"]');
-    const basicContent = document.getElementById('tab-basic');
-    if (basicTab) basicTab.classList.add('active');
-    if (basicContent) basicContent.classList.add('active');
+    activateDealTab('deal-tab-basic');
 
     if (dealId) {
         const deal = state.deals.find(d => d.id === dealId);
@@ -1953,6 +1948,15 @@ function initFilters() {
 // ==========================================
 // Deal Modal Tabs
 // ==========================================
+function activateDealTab(tabId) {
+    document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.modal-tab-content').forEach(c => c.classList.remove('active'));
+    const tab = document.querySelector(`.modal-tab[data-tab="${tabId}"]`);
+    const content = document.getElementById(tabId);
+    if (tab) tab.classList.add('active');
+    if (content) content.classList.add('active');
+}
+
 function initDealModalTabs() {
     document.querySelectorAll('.modal-tab').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -1961,10 +1965,13 @@ function initDealModalTabs() {
             document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.modal-tab-content').forEach(c => c.classList.remove('active'));
             tab.classList.add('active');
-            const content = document.getElementById('tab-' + targetTab);
+            const content = document.getElementById(targetTab);
             if (content) content.classList.add('active');
         });
     });
+
+    // Activate first tab by default
+    activateDealTab('deal-tab-basic');
 
     // Approval required radio toggle
     const approvalYes = document.getElementById('approval-required-yes');
