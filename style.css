@@ -2910,3 +2910,450 @@ body {
         max-width: 100%;
     }
 }
+
+/* ==========================================
+   KGI / KSF / KPI Metrics Management
+   ========================================== */
+.metrics-container {
+    padding: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.metrics-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.metrics-fy-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.metrics-fy-selector label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.metrics-period-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 3px;
+}
+
+.metrics-period-tab {
+    padding: 6px 16px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.metrics-period-tab.active {
+    background: var(--signal-blue);
+    color: white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.metrics-period-tab:hover:not(.active) {
+    background: var(--bg-primary);
+}
+
+.metrics-area-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 0;
+}
+
+.metrics-area-tab {
+    padding: 8px 20px;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text-secondary);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.2s;
+}
+
+.metrics-area-tab.active {
+    color: var(--signal-blue);
+    border-bottom-color: var(--signal-blue);
+}
+
+.metrics-area-tab:hover:not(.active) {
+    color: var(--text-primary);
+}
+
+.metrics-sub-period {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.metrics-sub-btn {
+    padding: 5px 14px;
+    border: 1px solid var(--border);
+    background: white;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.metrics-sub-btn.active {
+    border-color: var(--signal-blue);
+    background: rgba(0,92,145,0.08);
+    color: var(--signal-blue);
+    font-weight: 600;
+}
+
+.metrics-sub-btn:hover:not(.active) {
+    background: var(--bg-secondary);
+}
+
+/* Metric Type Section */
+.metric-type-section {
+    margin-bottom: 24px;
+}
+
+.metric-type-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+}
+
+.metric-type-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: white;
+}
+
+.metric-type-badge.kgi { background: #005c91; }
+.metric-type-badge.ksf { background: #29cc6b; }
+.metric-type-badge.kpi { background: #f5a623; }
+
+.metric-type-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* Metric Cards (for KGI/KSF) */
+.metric-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.metric-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    position: relative;
+    transition: box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.metric-card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.metric-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+}
+
+.metric-card-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.metric-card-area {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.metric-card-area.新卒 { background: #e3f2fd; color: #1565c0; }
+.metric-card-area.中途 { background: #e8f5e9; color: #2e7d32; }
+.metric-card-area.コンサル { background: #fff3e0; color: #e65100; }
+
+.metric-card-values {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 10px;
+}
+
+.metric-card-val {
+    flex: 1;
+}
+
+.metric-card-val-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+}
+
+.metric-card-val-num {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.metric-card-val-num.actual { color: var(--signal-blue); }
+
+/* Progress bar */
+.metric-progress {
+    height: 6px;
+    background: var(--bg-secondary);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+.metric-progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+}
+
+.metric-progress-fill.green { background: #29cc6b; }
+.metric-progress-fill.yellow { background: #f5a623; }
+.metric-progress-fill.red { background: #e74c3c; }
+.metric-progress-fill.blue { background: var(--signal-blue); }
+
+.metric-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.metric-achievement {
+    font-weight: 700;
+}
+
+.metric-achievement.achieved { color: #29cc6b; }
+.metric-achievement.warning { color: #f5a623; }
+.metric-achievement.danger { color: #e74c3c; }
+
+.metric-card-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.metric-card-actions button {
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+    background: white;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.metric-card-actions button:hover {
+    background: var(--signal-blue);
+    color: white;
+    border-color: var(--signal-blue);
+}
+
+/* Metrics Table (for KPI) */
+.metrics-table-wrapper {
+    overflow-x: auto;
+    margin-bottom: 8px;
+}
+
+.metrics-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.metrics-table th,
+.metrics-table td {
+    padding: 8px 10px;
+    text-align: right;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.metrics-table th {
+    background: var(--bg-secondary);
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    position: sticky;
+    top: 0;
+}
+
+.metrics-table th:first-child,
+.metrics-table td:first-child {
+    text-align: left;
+    position: sticky;
+    left: 0;
+    background: white;
+    z-index: 1;
+    min-width: 140px;
+}
+
+.metrics-table th:first-child {
+    background: var(--bg-secondary);
+    z-index: 2;
+}
+
+.metrics-table td.metric-name-cell {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.metrics-table tr:hover td {
+    background: rgba(0,92,145,0.03);
+}
+
+.metrics-table .target-row td {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.metrics-table .actual-row td {
+    font-weight: 600;
+}
+
+.metrics-table .achievement-row td {
+    font-size: 12px;
+}
+
+.metrics-table .cell-achieved { color: #29cc6b; font-weight: 600; }
+.metrics-table .cell-warning { color: #f5a623; font-weight: 600; }
+.metrics-table .cell-danger { color: #e74c3c; font-weight: 600; }
+.metrics-table .cell-clickable {
+    cursor: pointer;
+    position: relative;
+}
+.metrics-table .cell-clickable:hover {
+    background: rgba(0,92,145,0.08);
+}
+
+.metrics-table .cell-empty {
+    color: #ccc;
+    font-style: italic;
+}
+
+/* Monthly target inputs in modal */
+.metric-monthly-targets {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+
+.metric-month-input {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.metric-month-input label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.metric-month-input input {
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    text-align: right;
+}
+
+.metric-month-input input:focus {
+    border-color: var(--signal-blue);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0,92,145,0.1);
+}
+
+/* Empty state */
+.metrics-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+}
+
+.metrics-empty i {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.3;
+}
+
+.metrics-empty p {
+    font-size: 14px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .metrics-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .metrics-period-tabs {
+        overflow-x: auto;
+    }
+
+    .metrics-area-tabs {
+        overflow-x: auto;
+    }
+
+    .metric-cards-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .metric-monthly-targets {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .metrics-table {
+        font-size: 12px;
+    }
+
+    .metrics-table th,
+    .metrics-table td {
+        padding: 6px 8px;
+    }
+}

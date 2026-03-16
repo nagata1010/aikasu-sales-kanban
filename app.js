@@ -111,6 +111,8 @@ const contactsRef = db.collection('contacts');
 const contractsRef = db.collection('contracts');
 const dealActivitiesRef = db.collection('deal_activities');
 const dealTasksRef = db.collection('deal_tasks');
+const metricsRef = db.collection('metrics');
+const metricActualsRef = db.collection('metric_actuals');
 
 // リアルタイムリスナー解除用
 let unsubDeals = null;
@@ -122,6 +124,8 @@ let unsubContacts = null;
 let unsubContracts = null;
 let unsubDealActivities = null;
 let unsubDealTasks = null;
+let unsubMetrics = null;
+let unsubMetricActuals = null;
 
 // ==========================================
 // State
@@ -147,7 +151,18 @@ let state = {
     editingContactId: null,
     editingContractId: null,
     editingContactCompanyId: null,
-    userRoles: {}
+    userRoles: {},
+    metrics: [],
+    metricActuals: [],
+    metricsView: {
+        period: 'annual',
+        area: 'all',
+        subPeriod: null,
+        fiscalYear: null
+    },
+    editingMetricId: null,
+    editingActualMetricId: null,
+    editingActualMonth: null
 };
 
 // ==========================================
@@ -436,6 +451,9 @@ function startRealtimeListeners() {
             renderRoleManagement();
         }
     });
+
+    // Metrics リスナー
+    setupMetricsListeners();
 }
 
 function stopRealtimeListeners() {
@@ -448,6 +466,8 @@ function stopRealtimeListeners() {
     if (unsubContracts) { unsubContracts(); unsubContracts = null; }
     if (unsubDealActivities) { unsubDealActivities(); unsubDealActivities = null; }
     if (unsubDealTasks) { unsubDealTasks(); unsubDealTasks = null; }
+    if (unsubMetrics) { unsubMetrics(); unsubMetrics = null; }
+    if (unsubMetricActuals) { unsubMetricActuals(); unsubMetricActuals = null; }
 }
 
 // ==========================================
@@ -779,7 +799,8 @@ function switchView(view) {
         leads: 'リード管理',
         companies: '企業・連絡先',
         contracts: '契約管理',
-        dashboard: 'ダッシュボード'
+        dashboard: 'ダッシュボード',
+        metrics: 'KGI/KSF/KPI管理'
     };
     document.getElementById('page-title').textContent = titles[view] || view;
 
@@ -792,6 +813,7 @@ function switchView(view) {
     if (view === 'companies') renderCompaniesView();
     if (view === 'contracts') renderContractsView();
     if (view === 'dashboard') renderDashboard();
+    if (view === 'metrics') initMetricsView();
 }
 
 // ==========================================
@@ -3483,9 +3505,612 @@ function init() {
             closeCompanyModal();
             closeContactModal();
             closeContractModal();
+            if (typeof closeMetricModal === 'function') closeMetricModal();
+            if (typeof closeMetricActualModal === 'function') closeMetricActualModal();
             document.getElementById('activity-modal').classList.remove('show');
         }
     });
+}
+
+// ==========================================
+// KGI / KSF / KPI Metrics Management
+// ==========================================
+
+// 会計年度ヘルパー (8月末決算, 9月期首)
+// FY2025 = 2025年9月 ~ 2026年8月
+const FISCAL_MONTHS = [9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8];
+const FISCAL_MONTH_LABELS = ['9月','10月','11月','12月','1月','2月','3月','4月','5月','6月','7月','8月'];
+
+function getCurrentFiscalYear() {
+    const now = new Date();
+    const m = now.getMonth() + 1; // 1-12
+    const y = now.getFullYear();
+    return m >= 9 ? y : y - 1; // 9月以降は当年、1-8月は前年が期首年
+}
+
+function getFiscalYearLabel(fy) {
+    return `${fy}年度 (${fy}/9〜${fy+1}/8)`;
+}
+
+function getFiscalMonthKey(fy, monthIndex) {
+    // monthIndex: 0=Sep, 1=Oct, ..., 11=Aug
+    const m = FISCAL_MONTHS[monthIndex];
+    const y = m >= 9 ? fy : fy + 1;
+    return `${y}-${String(m).padStart(2, '0')}`;
+}
+
+function getFiscalQuarters() {
+    return [
+        { label: 'Q1 (9-11月)', months: [0, 1, 2] },
+        { label: 'Q2 (12-2月)', months: [3, 4, 5] },
+        { label: 'Q3 (3-5月)', months: [6, 7, 8] },
+        { label: 'Q4 (6-8月)', months: [9, 10, 11] }
+    ];
+}
+
+function getFiscalHalves() {
+    return [
+        { label: '上期 (9-2月)', months: [0, 1, 2, 3, 4, 5] },
+        { label: '下期 (3-8月)', months: [6, 7, 8, 9, 10, 11] }
+    ];
+}
+
+// Firestoreリスナー (init内で呼ぶ)
+function setupMetricsListeners() {
+    unsubMetrics = metricsRef.onSnapshot(snap => {
+        state.metrics = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        if (state.currentView === 'metrics') renderMetricsView();
+    });
+    unsubMetricActuals = metricActualsRef.onSnapshot(snap => {
+        state.metricActuals = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        if (state.currentView === 'metrics') renderMetricsView();
+    });
+}
+
+function initMetricsView() {
+    if (!state.metricsView.fiscalYear) {
+        state.metricsView.fiscalYear = getCurrentFiscalYear();
+    }
+
+    // 会計年度セレクター
+    const fySelect = document.getElementById('metrics-fy');
+    if (fySelect) {
+        const currentFY = getCurrentFiscalYear();
+        fySelect.innerHTML = '';
+        for (let y = currentFY + 1; y >= currentFY - 3; y--) {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = getFiscalYearLabel(y);
+            if (y === state.metricsView.fiscalYear) opt.selected = true;
+            fySelect.appendChild(opt);
+        }
+        fySelect.onchange = () => {
+            state.metricsView.fiscalYear = parseInt(fySelect.value);
+            state.metricsView.subPeriod = null;
+            renderMetricsView();
+        };
+    }
+
+    // 期間タブ
+    document.querySelectorAll('.metrics-period-tab').forEach(tab => {
+        tab.onclick = () => {
+            document.querySelectorAll('.metrics-period-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            state.metricsView.period = tab.dataset.period;
+            state.metricsView.subPeriod = null;
+            renderMetricsView();
+        };
+    });
+
+    // 領域タブ
+    document.querySelectorAll('.metrics-area-tab').forEach(tab => {
+        tab.onclick = () => {
+            document.querySelectorAll('.metrics-area-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            state.metricsView.area = tab.dataset.area;
+            renderMetricsView();
+        };
+    });
+
+    // 指標追加ボタン
+    const addBtn = document.getElementById('add-metric-btn');
+    if (addBtn) addBtn.onclick = () => openMetricModal();
+
+    // メトリック追加 モーダル会計年度セレクターも更新
+    const mfySelect = document.getElementById('metric-fy');
+    if (mfySelect) {
+        const currentFY = getCurrentFiscalYear();
+        mfySelect.innerHTML = '';
+        for (let y = currentFY + 1; y >= currentFY - 3; y--) {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = getFiscalYearLabel(y);
+            if (y === state.metricsView.fiscalYear) opt.selected = true;
+            mfySelect.appendChild(opt);
+        }
+    }
+
+    renderMetricsView();
+}
+
+function renderMetricsView() {
+    const fy = state.metricsView.fiscalYear;
+    const period = state.metricsView.period;
+    const area = state.metricsView.area;
+    const body = document.getElementById('metrics-body');
+    const subPeriodEl = document.getElementById('metrics-sub-period');
+    if (!body) return;
+
+    // フィルター: 会計年度 & 領域
+    let filtered = state.metrics.filter(m => (m.fiscalYear || getCurrentFiscalYear()) === fy);
+    if (area !== 'all') {
+        filtered = filtered.filter(m => m.area === area);
+    }
+
+    // サブ期間ボタン描画
+    renderSubPeriodButtons(subPeriodEl, period);
+
+    // 表示期間の月インデックス配列
+    const monthIndices = getMonthIndicesForPeriod(period, state.metricsView.subPeriod);
+
+    if (filtered.length === 0) {
+        body.innerHTML = `
+            <div class="metrics-empty">
+                <i class="fas fa-bullseye"></i>
+                <p>指標がまだ登録されていません</p>
+                <p style="font-size:12px;margin-top:8px">「指標追加」ボタンから KGI/KSF/KPI を登録してください</p>
+            </div>`;
+        return;
+    }
+
+    // KGI, KSF, KPI でグループ化
+    const groups = { KGI: [], KSF: [], KPI: [] };
+    filtered.forEach(m => {
+        if (groups[m.type]) groups[m.type].push(m);
+    });
+
+    let html = '';
+
+    // KGI セクション
+    if (groups.KGI.length > 0) {
+        html += renderMetricTypeSection('KGI', '重要目標達成指標', groups.KGI, monthIndices, fy);
+    }
+
+    // KSF セクション
+    if (groups.KSF.length > 0) {
+        html += renderMetricTypeSection('KSF', '重要成功要因', groups.KSF, monthIndices, fy);
+    }
+
+    // KPI セクション (テーブル形式)
+    if (groups.KPI.length > 0) {
+        html += renderKPITableSection(groups.KPI, monthIndices, fy);
+    }
+
+    body.innerHTML = html;
+}
+
+function renderSubPeriodButtons(container, period) {
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (period === 'annual') return;
+
+    let buttons = [];
+    if (period === 'half') {
+        buttons = getFiscalHalves().map((h, i) => ({ label: h.label, value: i }));
+    } else if (period === 'quarter') {
+        buttons = getFiscalQuarters().map((q, i) => ({ label: q.label, value: i }));
+    } else if (period === 'monthly') {
+        buttons = FISCAL_MONTH_LABELS.map((l, i) => ({ label: l, value: i }));
+    }
+
+    buttons.forEach(b => {
+        const btn = document.createElement('button');
+        btn.className = 'metrics-sub-btn' + (state.metricsView.subPeriod === b.value ? ' active' : '');
+        btn.textContent = b.label;
+        btn.onclick = () => {
+            state.metricsView.subPeriod = b.value;
+            renderMetricsView();
+        };
+        container.appendChild(btn);
+    });
+
+    // デフォルト選択
+    if (state.metricsView.subPeriod === null && buttons.length > 0) {
+        // 現在の月に基づいて自動選択
+        const now = new Date();
+        const nowMonth = now.getMonth() + 1;
+        const fiscalIndex = FISCAL_MONTHS.indexOf(nowMonth);
+
+        if (period === 'monthly') {
+            state.metricsView.subPeriod = fiscalIndex >= 0 ? fiscalIndex : 0;
+        } else if (period === 'quarter') {
+            state.metricsView.subPeriod = Math.floor((fiscalIndex >= 0 ? fiscalIndex : 0) / 3);
+        } else if (period === 'half') {
+            state.metricsView.subPeriod = fiscalIndex < 6 ? 0 : 1;
+        }
+        renderMetricsView();
+        return;
+    }
+}
+
+function getMonthIndicesForPeriod(period, subPeriod) {
+    if (period === 'annual') return [0,1,2,3,4,5,6,7,8,9,10,11];
+    if (period === 'half') {
+        const halves = getFiscalHalves();
+        const idx = subPeriod !== null ? subPeriod : 0;
+        return halves[idx] ? halves[idx].months : [0,1,2,3,4,5];
+    }
+    if (period === 'quarter') {
+        const quarters = getFiscalQuarters();
+        const idx = subPeriod !== null ? subPeriod : 0;
+        return quarters[idx] ? quarters[idx].months : [0,1,2];
+    }
+    if (period === 'monthly') {
+        const idx = subPeriod !== null ? subPeriod : 0;
+        return [idx];
+    }
+    return [0,1,2,3,4,5,6,7,8,9,10,11];
+}
+
+function getMetricActual(metricId, monthKey) {
+    return state.metricActuals.find(a => a.metricId === metricId && a.monthKey === monthKey);
+}
+
+function calcTarget(metric, monthIndices, fy) {
+    let total = 0;
+    monthIndices.forEach(mi => {
+        const key = getFiscalMonthKey(fy, mi);
+        total += (metric.monthlyTargets && metric.monthlyTargets[key]) || 0;
+    });
+    return total;
+}
+
+function calcActual(metricId, monthIndices, fy) {
+    let total = 0;
+    monthIndices.forEach(mi => {
+        const key = getFiscalMonthKey(fy, mi);
+        const a = getMetricActual(metricId, key);
+        if (a) total += (a.actual || 0);
+    });
+    return total;
+}
+
+function formatMetricValue(val, unit) {
+    if (val === null || val === undefined) return '-';
+    if (unit === '円') return '¥' + Number(val).toLocaleString();
+    if (unit === '%') return val + '%';
+    return Number(val).toLocaleString() + (unit || '');
+}
+
+function renderMetricTypeSection(type, label, metrics, monthIndices, fy) {
+    const typeLC = type.toLowerCase();
+    let html = `
+    <div class="metric-type-section">
+        <div class="metric-type-header">
+            <span class="metric-type-badge ${typeLC}">${type}</span>
+            <span class="metric-type-label">${label}</span>
+        </div>
+        <div class="metric-cards-grid">`;
+
+    metrics.forEach(m => {
+        const target = calcTarget(m, monthIndices, fy);
+        const actual = calcActual(m.id, monthIndices, fy);
+        const rate = target > 0 ? Math.round((actual / target) * 100) : 0;
+        const progressColor = rate >= 100 ? 'green' : rate >= 70 ? 'yellow' : rate > 0 ? 'red' : 'blue';
+        const achClass = rate >= 100 ? 'achieved' : rate >= 70 ? 'warning' : 'danger';
+
+        html += `
+        <div class="metric-card" onclick="openMetricModal('${m.id}')">
+            <div class="metric-card-top">
+                <span class="metric-card-name">${m.name}</span>
+                <span class="metric-card-area ${m.area}">${m.area}</span>
+            </div>
+            <div class="metric-card-values">
+                <div class="metric-card-val">
+                    <div class="metric-card-val-label">目標</div>
+                    <div class="metric-card-val-num">${formatMetricValue(target, m.unit)}</div>
+                </div>
+                <div class="metric-card-val">
+                    <div class="metric-card-val-label">実績</div>
+                    <div class="metric-card-val-num actual">${formatMetricValue(actual, m.unit)}</div>
+                </div>
+            </div>
+            <div class="metric-progress">
+                <div class="metric-progress-fill ${progressColor}" style="width:${Math.min(rate, 100)}%"></div>
+            </div>
+            <div class="metric-card-footer">
+                <span class="metric-achievement ${achClass}">${rate}% 達成</span>
+                <div class="metric-card-actions">
+                    <button onclick="event.stopPropagation(); openMetricActualModal('${m.id}')" title="実績入力">
+                        <i class="fas fa-edit"></i> 実績入力
+                    </button>
+                </div>
+            </div>
+        </div>`;
+    });
+
+    html += '</div></div>';
+    return html;
+}
+
+function renderKPITableSection(metrics, monthIndices, fy) {
+    let html = `
+    <div class="metric-type-section">
+        <div class="metric-type-header">
+            <span class="metric-type-badge kpi">KPI</span>
+            <span class="metric-type-label">重要業績評価指標</span>
+        </div>
+        <div class="metrics-table-wrapper">
+            <table class="metrics-table">
+                <thead><tr>
+                    <th>指標名</th>`;
+
+    // 列ヘッダー
+    monthIndices.forEach(mi => {
+        html += `<th>${FISCAL_MONTH_LABELS[mi]}</th>`;
+    });
+    html += `<th>合計</th><th>達成率</th></tr></thead><tbody>`;
+
+    metrics.forEach(m => {
+        let totalTarget = 0;
+        let totalActual = 0;
+
+        // 目標行
+        html += `<tr class="target-row"><td class="metric-name-cell" rowspan="2" style="vertical-align:middle;cursor:pointer" onclick="openMetricModal('${m.id}')">
+            ${m.name}<br><span style="font-size:10px;color:#999;font-weight:normal">${m.area} / ${m.unit || ''}</span>
+        </td>`;
+        monthIndices.forEach(mi => {
+            const key = getFiscalMonthKey(fy, mi);
+            const t = (m.monthlyTargets && m.monthlyTargets[key]) || 0;
+            totalTarget += t;
+            html += `<td>${t ? formatMetricValue(t, m.unit) : '<span class="cell-empty">-</span>'}</td>`;
+        });
+        html += `<td style="font-weight:600">${formatMetricValue(totalTarget, m.unit)}</td><td></td></tr>`;
+
+        // 実績行
+        html += `<tr class="actual-row">`;
+        monthIndices.forEach(mi => {
+            const key = getFiscalMonthKey(fy, mi);
+            const a = getMetricActual(m.id, key);
+            const val = a ? a.actual : null;
+            if (val !== null) totalActual += val;
+
+            const tgt = (m.monthlyTargets && m.monthlyTargets[key]) || 0;
+            let cellClass = 'cell-clickable';
+            if (val !== null && tgt > 0) {
+                cellClass += val >= tgt ? ' cell-achieved' : (val >= tgt * 0.7 ? ' cell-warning' : ' cell-danger');
+            }
+            html += `<td class="${cellClass}" onclick="openMetricActualModal('${m.id}', '${key}')">${val !== null ? formatMetricValue(val, m.unit) : '<span class="cell-empty">入力</span>'}</td>`;
+        });
+
+        const rate = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0;
+        const rateClass = rate >= 100 ? 'cell-achieved' : rate >= 70 ? 'cell-warning' : 'cell-danger';
+        html += `<td style="font-weight:600">${formatMetricValue(totalActual, m.unit)}</td>`;
+        html += `<td class="${rateClass}">${rate}%</td></tr>`;
+    });
+
+    html += '</tbody></table></div></div>';
+    return html;
+}
+
+// Metric Modal (CRUD)
+function openMetricModal(metricId) {
+    const modal = document.getElementById('metric-modal');
+    const title = document.getElementById('metric-modal-title');
+    const deleteBtn = document.getElementById('delete-metric-btn');
+
+    if (metricId) {
+        const m = state.metrics.find(x => x.id === metricId);
+        if (!m) return;
+        state.editingMetricId = metricId;
+        title.textContent = '指標編集';
+        deleteBtn.style.display = 'inline-flex';
+
+        document.getElementById('metric-name').value = m.name || '';
+        document.getElementById('metric-type').value = m.type || 'KPI';
+        document.getElementById('metric-area').value = m.area || '新卒';
+        document.getElementById('metric-unit').value = m.unit || '件';
+        document.getElementById('metric-fy').value = m.fiscalYear || state.metricsView.fiscalYear;
+        updateMetricParentSelect(metricId);
+        document.getElementById('metric-parent').value = m.parentId || '';
+
+        renderMonthlyTargetInputs(m.fiscalYear || state.metricsView.fiscalYear, m.monthlyTargets || {});
+    } else {
+        state.editingMetricId = null;
+        title.textContent = '指標追加';
+        deleteBtn.style.display = 'none';
+
+        document.getElementById('metric-name').value = '';
+        document.getElementById('metric-type').value = 'KPI';
+        document.getElementById('metric-area').value = '新卒';
+        document.getElementById('metric-unit').value = '件';
+        document.getElementById('metric-fy').value = state.metricsView.fiscalYear;
+        updateMetricParentSelect(null);
+
+        renderMonthlyTargetInputs(state.metricsView.fiscalYear, {});
+    }
+
+    modal.classList.add('show');
+}
+
+function closeMetricModal() {
+    document.getElementById('metric-modal').classList.remove('show');
+    state.editingMetricId = null;
+}
+
+function updateMetricParentSelect(excludeId) {
+    const select = document.getElementById('metric-parent');
+    select.innerHTML = '<option value="">なし（トップレベル）</option>';
+    state.metrics
+        .filter(m => m.id !== excludeId && (m.type === 'KGI' || m.type === 'KSF'))
+        .forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = `[${m.type}] ${m.name} (${m.area})`;
+            select.appendChild(opt);
+        });
+}
+
+function renderMonthlyTargetInputs(fy, values) {
+    const container = document.getElementById('metric-monthly-targets');
+    container.innerHTML = '';
+    FISCAL_MONTHS.forEach((m, i) => {
+        const key = getFiscalMonthKey(fy, i);
+        const val = values[key] || '';
+        const div = document.createElement('div');
+        div.className = 'metric-month-input';
+        div.innerHTML = `
+            <label>${FISCAL_MONTH_LABELS[i]}</label>
+            <input type="number" data-month-key="${key}" value="${val}" placeholder="0" oninput="updateAnnualTarget()">
+        `;
+        container.appendChild(div);
+    });
+    updateAnnualTarget();
+}
+
+function updateAnnualTarget() {
+    const inputs = document.querySelectorAll('#metric-monthly-targets input[type="number"]');
+    let total = 0;
+    inputs.forEach(inp => { total += parseFloat(inp.value) || 0; });
+    const unit = document.getElementById('metric-unit').value;
+    document.getElementById('metric-annual-target').value = formatMetricValue(total, unit);
+}
+
+async function saveMetric() {
+    const name = document.getElementById('metric-name').value.trim();
+    const type = document.getElementById('metric-type').value;
+    const area = document.getElementById('metric-area').value;
+    const unit = document.getElementById('metric-unit').value;
+    const fy = parseInt(document.getElementById('metric-fy').value);
+    const parentId = document.getElementById('metric-parent').value || null;
+
+    if (!name) {
+        alert('指標名を入力してください');
+        return;
+    }
+
+    // 月次目標収集
+    const monthlyTargets = {};
+    document.querySelectorAll('#metric-monthly-targets input[type="number"]').forEach(inp => {
+        const key = inp.dataset.monthKey;
+        const val = parseFloat(inp.value) || 0;
+        monthlyTargets[key] = val;
+    });
+
+    const data = {
+        name,
+        type,
+        area,
+        unit,
+        fiscalYear: fy,
+        parentId,
+        monthlyTargets,
+        updatedAt: new Date().toISOString()
+    };
+
+    try {
+        if (state.editingMetricId) {
+            await metricsRef.doc(state.editingMetricId).update(data);
+        } else {
+            data.createdAt = new Date().toISOString();
+            await metricsRef.add(data);
+        }
+        closeMetricModal();
+    } catch (err) {
+        console.error('Metric save error:', err);
+        alert('保存に失敗しました');
+    }
+}
+
+async function deleteMetric() {
+    if (!state.editingMetricId) return;
+    if (!confirm('この指標を削除しますか？関連する実績データも削除されます。')) return;
+
+    try {
+        // 関連する実績データも削除
+        const actualsSnap = await metricActualsRef.where('metricId', '==', state.editingMetricId).get();
+        const batch = db.batch();
+        actualsSnap.forEach(doc => batch.delete(doc.ref));
+        batch.delete(metricsRef.doc(state.editingMetricId));
+        await batch.commit();
+        closeMetricModal();
+    } catch (err) {
+        console.error('Metric delete error:', err);
+        alert('削除に失敗しました');
+    }
+}
+
+// Metric Actual Modal
+function openMetricActualModal(metricId, monthKey) {
+    const modal = document.getElementById('metric-actual-modal');
+    const m = state.metrics.find(x => x.id === metricId);
+    if (!m) return;
+
+    state.editingActualMetricId = metricId;
+
+    // monthKeyが指定されていない場合、現在月を使用
+    if (!monthKey) {
+        const now = new Date();
+        const nowMonth = now.getMonth() + 1;
+        const fiscalIndex = FISCAL_MONTHS.indexOf(nowMonth);
+        monthKey = getFiscalMonthKey(m.fiscalYear || state.metricsView.fiscalYear, fiscalIndex >= 0 ? fiscalIndex : 0);
+    }
+    state.editingActualMonth = monthKey;
+
+    // 月表示
+    const parts = monthKey.split('-');
+    const monthLabel = parseInt(parts[1]) + '月';
+    document.getElementById('metric-actual-modal-title').textContent = `${m.name} - ${monthLabel} 実績入力`;
+    document.getElementById('metric-actual-label').textContent = `実績値（${m.unit || ''}）`;
+
+    // 既存データ
+    const existing = getMetricActual(metricId, monthKey);
+    document.getElementById('metric-actual-value').value = existing ? existing.actual : '';
+    document.getElementById('metric-actual-forecast').value = existing ? (existing.forecast || '') : '';
+    document.getElementById('metric-actual-memo').value = existing ? (existing.memo || '') : '';
+
+    modal.classList.add('show');
+}
+
+function closeMetricActualModal() {
+    document.getElementById('metric-actual-modal').classList.remove('show');
+    state.editingActualMetricId = null;
+    state.editingActualMonth = null;
+}
+
+async function saveMetricActual() {
+    const metricId = state.editingActualMetricId;
+    const monthKey = state.editingActualMonth;
+    if (!metricId || !monthKey) return;
+
+    const actual = parseFloat(document.getElementById('metric-actual-value').value) || 0;
+    const forecast = parseFloat(document.getElementById('metric-actual-forecast').value) || null;
+    const memo = document.getElementById('metric-actual-memo').value.trim();
+
+    const data = {
+        metricId,
+        monthKey,
+        actual,
+        forecast,
+        memo,
+        updatedAt: new Date().toISOString()
+    };
+
+    try {
+        // 既存レコードを探す
+        const existing = state.metricActuals.find(a => a.metricId === metricId && a.monthKey === monthKey);
+        if (existing) {
+            await metricActualsRef.doc(existing.id).update(data);
+        } else {
+            data.createdAt = new Date().toISOString();
+            await metricActualsRef.add(data);
+        }
+        closeMetricActualModal();
+    } catch (err) {
+        console.error('Actual save error:', err);
+        alert('保存に失敗しました');
+    }
 }
 
 // Start
