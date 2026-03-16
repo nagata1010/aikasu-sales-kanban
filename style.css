@@ -2058,3 +2058,738 @@ body {
         min-height: 40px;
     }
 }
+
+/* ==========================================
+   Nav Section Labels
+   ========================================== */
+.nav-section-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--gray-500);
+    padding: 16px 20px 4px;
+    font-weight: 600;
+}
+
+.sidebar.collapsed .nav-section-label {
+    display: none;
+}
+
+/* ==========================================
+   Modal Large
+   ========================================== */
+.modal-lg {
+    max-width: 720px;
+    max-height: 85vh;
+}
+
+.modal-lg .modal-body {
+    max-height: calc(85vh - 140px);
+    overflow-y: auto;
+}
+
+/* ==========================================
+   Modal Tabs
+   ========================================== */
+.modal-tabs {
+    display: flex;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--gray-200);
+    padding: 0 20px;
+    gap: 0;
+    background: var(--gray-50);
+    -webkit-overflow-scrolling: touch;
+}
+
+/* ==========================================
+   Modal Tab Button
+   ========================================== */
+.modal-tab {
+    padding: 10px 14px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: var(--gray-600);
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.modal-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    font-weight: 500;
+}
+
+.modal-tab:hover {
+    color: var(--primary-light);
+}
+
+.modal-tab i {
+    margin-right: 4px;
+    font-size: 0.75rem;
+}
+
+/* ==========================================
+   Modal Tab Content
+   ========================================== */
+.modal-tab-content {
+    display: none;
+}
+
+.modal-tab-content.active {
+    display: block;
+}
+
+/* ==========================================
+   Form Input With Link
+   ========================================== */
+.form-input-with-link {
+    display: flex;
+    gap: 8px;
+}
+
+.form-input-with-link .form-input {
+    flex: 1;
+}
+
+.form-input-with-link .form-input-sm {
+    max-width: 180px;
+    font-size: 0.8rem;
+}
+
+/* ==========================================
+   Form Divider
+   ========================================== */
+.form-divider {
+    border: none;
+    border-top: 1px solid var(--gray-200);
+    margin: 20px 0;
+}
+
+/* ==========================================
+   Form Section Title
+   ========================================== */
+.form-section-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin: 0 0 12px;
+}
+
+.form-section-title i {
+    color: var(--primary);
+    margin-right: 6px;
+}
+
+/* ==========================================
+   Toggle Group
+   ========================================== */
+.toggle-group {
+    display: flex;
+    gap: 12px;
+}
+
+.toggle-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.toggle-option input[type="radio"] {
+    accent-color: var(--primary);
+}
+
+/* ==========================================
+   Form Value Display
+   ========================================== */
+.form-value-display {
+    padding: 10px 12px;
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--primary);
+}
+
+/* ==========================================
+   Forecast Summary / Hint
+   ========================================== */
+.forecast-summary {
+    margin-top: 16px;
+    padding: 12px;
+    background: var(--primary-50);
+    border-radius: var(--radius);
+}
+
+.forecast-hint {
+    font-size: 0.8rem;
+    color: var(--gray-600);
+}
+
+/* ==========================================
+   Playbook Checks
+   ========================================== */
+.playbook-checks label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--gray-100);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.playbook-checks label:last-child {
+    border-bottom: none;
+}
+
+.playbook-checks input[type="checkbox"] {
+    accent-color: var(--primary);
+    width: 16px;
+    height: 16px;
+}
+
+/* ==========================================
+   Deal Tasks List
+   ========================================== */
+.deal-tasks-list {
+    margin-bottom: 12px;
+}
+
+.task-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.task-item input[type="checkbox"] {
+    accent-color: var(--success);
+    width: 16px;
+    height: 16px;
+}
+
+.task-item.completed .task-title {
+    text-decoration: line-through;
+    color: var(--gray-500);
+}
+
+.task-title {
+    flex: 1;
+    font-size: 0.85rem;
+}
+
+.task-due {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+}
+
+.task-due.overdue {
+    color: var(--danger);
+}
+
+.task-delete-btn {
+    background: none;
+    border: none;
+    color: var(--gray-400);
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.task-delete-btn:hover {
+    color: var(--danger);
+}
+
+/* ==========================================
+   Inline Add Form
+   ========================================== */
+.inline-add-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.inline-add-form .form-input {
+    flex: 1;
+    padding: 8px 10px;
+    font-size: 0.85rem;
+}
+
+.inline-add-form .form-input-sm {
+    max-width: 140px;
+}
+
+/* ==========================================
+   Entity Card Grid
+   ========================================== */
+.entity-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+}
+
+/* ==========================================
+   Entity Card
+   ========================================== */
+.entity-card {
+    background: white;
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--gray-200);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.entity-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+.entity-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.entity-card-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--gray-900);
+}
+
+.entity-card-industry {
+    font-size: 0.8rem;
+    color: var(--gray-500);
+    margin-top: 2px;
+}
+
+.entity-card-stats {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+}
+
+.entity-card-stat {
+    text-align: center;
+}
+
+.entity-card-stat-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--primary);
+}
+
+.entity-card-stat-label {
+    font-size: 0.7rem;
+    color: var(--gray-500);
+}
+
+/* ==========================================
+   Dashboard Grid
+   ========================================== */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+@media (max-width: 768px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ==========================================
+   Dashboard Card
+   ========================================== */
+.dashboard-card {
+    background: white;
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--gray-200);
+}
+
+.dashboard-card.wide {
+    grid-column: span 2;
+}
+
+@media (max-width: 768px) {
+    .dashboard-card.wide {
+        grid-column: span 1;
+    }
+}
+
+.dashboard-card h4 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin: 0 0 16px;
+}
+
+.dashboard-card h4 i {
+    color: var(--primary);
+    margin-right: 8px;
+}
+
+/* ==========================================
+   Dashboard Stat Row
+   ========================================== */
+.dashboard-stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.dashboard-stat-row:last-child {
+    border-bottom: none;
+}
+
+.dashboard-stat-label {
+    font-size: 0.85rem;
+    color: var(--gray-700);
+}
+
+.dashboard-stat-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--gray-900);
+}
+
+.dashboard-stat-value.primary {
+    color: var(--primary);
+}
+
+/* ==========================================
+   Dashboard Bar
+   ========================================== */
+.dashboard-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.dashboard-bar-label {
+    min-width: 80px;
+    font-size: 0.8rem;
+    color: var(--gray-600);
+}
+
+.dashboard-bar-track {
+    flex: 1;
+    height: 20px;
+    background: var(--gray-100);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.dashboard-bar-fill {
+    height: 100%;
+    border-radius: 10px;
+    background: var(--primary);
+    transition: width 0.3s;
+}
+
+.dashboard-bar-value {
+    min-width: 40px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--gray-700);
+    text-align: right;
+}
+
+/* ==========================================
+   Mobile More Menu
+   ========================================== */
+.mobile-more-menu {
+    position: fixed;
+    bottom: 70px;
+    left: 0;
+    right: 0;
+    background: white;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+    border-radius: 16px 16px 0 0;
+    padding: 12px 0;
+    z-index: 999;
+}
+
+.more-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 24px;
+    color: var(--gray-700);
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.more-menu-item:hover,
+.more-menu-item:active {
+    background: var(--gray-50);
+}
+
+.more-menu-item i {
+    width: 20px;
+    text-align: center;
+    color: var(--primary);
+}
+
+/* ==========================================
+   Empty Hint
+   ========================================== */
+.empty-hint {
+    text-align: center;
+    color: var(--gray-500);
+    font-size: 0.85rem;
+    padding: 20px;
+}
+
+/* ==========================================
+   Company Contacts List
+   ========================================== */
+.company-contacts-list {
+    margin-bottom: 12px;
+}
+
+.contact-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.contact-list-name {
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.contact-list-info {
+    font-size: 0.8rem;
+    color: var(--gray-500);
+}
+
+.contact-list-actions button {
+    background: none;
+    border: none;
+    color: var(--gray-400);
+    cursor: pointer;
+}
+
+.contact-list-actions button:hover {
+    color: var(--primary);
+}
+
+/* ==========================================
+   Button Success
+   ========================================== */
+.btn-success {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: var(--success);
+    color: var(--white);
+    border: none;
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: var(--font);
+    white-space: nowrap;
+}
+
+.btn-success:hover {
+    filter: brightness(1.1);
+}
+
+/* ==========================================
+   Button Small
+   ========================================== */
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+}
+
+/* ==========================================
+   Lead / Contract Status Badges
+   ========================================== */
+.lead-status-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.lead-status-badge.status-未対応 {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.lead-status-badge.status-対応中 {
+    background: var(--primary-lighter);
+    color: var(--primary);
+}
+
+.lead-status-badge.status-商談化 {
+    background: var(--success-light);
+    color: #1a7a3a;
+}
+
+.lead-status-badge.status-対象外 {
+    background: var(--gray-100);
+    color: var(--gray-600);
+}
+
+.contract-status-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.contract-status-badge.status-有効 {
+    background: var(--success-light);
+    color: #1a7a3a;
+}
+
+.contract-status-badge.status-満了 {
+    background: var(--warning-light);
+    color: #8a6d00;
+}
+
+.contract-status-badge.status-解約 {
+    background: var(--danger-light);
+    color: #c0392b;
+}
+
+/* ==========================================
+   Activity Type Icons
+   ========================================== */
+.activity-type-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    color: white;
+}
+
+.activity-type-icon.type-電話 {
+    background: #0077b6;
+}
+
+.activity-type-icon.type-訪問 {
+    background: #29cc6b;
+}
+
+.activity-type-icon.type-メール {
+    background: #f5a623;
+}
+
+.activity-type-icon.type-Web会議 {
+    background: #9b59b6;
+}
+
+.activity-type-icon.type-社内MTG {
+    background: #e74c3c;
+}
+
+.activity-type-icon.type-その他 {
+    background: #868e96;
+}
+
+/* ==========================================
+   Deal Activity Timeline
+   ========================================== */
+.deal-activity-timeline-item {
+    display: flex;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.activity-item-content {
+    flex: 1;
+}
+
+.activity-item-subject {
+    font-weight: 500;
+    font-size: 0.85rem;
+}
+
+.activity-item-detail {
+    font-size: 0.8rem;
+    color: var(--gray-600);
+    margin-top: 2px;
+}
+
+.activity-item-time {
+    font-size: 0.75rem;
+    color: var(--gray-400);
+}
+
+/* ==========================================
+   Mobile Responsive - New Elements
+   ========================================== */
+@media (max-width: 576px) {
+    .modal-tabs {
+        padding: 0 8px;
+    }
+
+    .modal-tab {
+        padding: 8px 10px;
+        font-size: 0.75rem;
+    }
+
+    .modal-tab i {
+        display: none;
+    }
+
+    .modal-lg {
+        max-height: 90vh;
+    }
+
+    .entity-card-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-card.wide {
+        grid-column: span 1;
+    }
+
+    .form-input-with-link {
+        flex-direction: column;
+    }
+
+    .form-input-with-link .form-input-sm {
+        max-width: 100%;
+    }
+
+    .inline-add-form {
+        flex-wrap: wrap;
+    }
+
+    .inline-add-form .form-input-sm {
+        max-width: 100%;
+    }
+}
